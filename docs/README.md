@@ -53,7 +53,7 @@ To communicate with the Data Lake we have set up an API using **FastAPI**. It ha
 
 ### Local experimentation with the API
 To start experimenting with the API:
-1.  Visit `https://github.com/iloudaros/agribot-data`
+1.  Visit `https://github.com/iloudaros/agribot-local`
 2.  Follow the instructions to create a local instance of it using Minikube.
 
 *In case you encounter a 404 error with the link above, chances are you are not listed as a contributor at the repository. Please send an email to `iloudaros@microlab.ntua.gr` and we will sort it out.*
