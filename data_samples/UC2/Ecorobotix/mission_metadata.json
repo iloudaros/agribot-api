@@ -1,0 +1,12 @@
+{
+    "num_gps_0_0_removed": 0,
+    "no_valid_GPS_data": false,
+    "max_lat": 46.96215985170065,
+    "min_lat": 46.95933422323656,
+    "max_long": 7.140545172632977,
+    "min_long": 7.136902175210454,
+    "area_analyzed": 0.2337060009465376,
+    "average_density": 2521471.9731952,
+    "crop_weed_correlation": 0.62,
+    "weed_liquid_correlation": 0.74
+}

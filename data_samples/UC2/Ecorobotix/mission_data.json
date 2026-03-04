@@ -1,0 +1,18 @@
+{
+    "start_time_ms": 1747408062392,
+    "end_time_ms": 1747408439367,
+    "robot_id": "erxbot-1910",
+    "field_owner": "T013",
+    "field_name": "26",
+    "travelled_distance_m": 418.86887,
+    "covered_area_m2": 2574.026,
+    "sprayed_fluid_l": 5.3678803,
+    "context_eppo": "DAUCA",
+    "target_eppo": "WEED",
+    "is_selective": true,
+    "target_fluid_surface_density_lpha": 200.0,
+    "setpoint_pressure_bar": 3.0,
+    "cultivation_method": "RIDGES",
+    "erx_soft_version": "release/2025.04.15",
+    "inference_model": "DAUCA/8"
+}
