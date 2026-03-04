@@ -1,8 +1,15 @@
 from fastapi import APIRouter
-from .endpoints import missions, images, token
+from app.api.v1.endpoints import token, core, spraying, monitoring, orchards
 
 api_router = APIRouter()
 
+# Auth
 api_router.include_router(token.router, prefix="/token", tags=["Authentication"])
-api_router.include_router(missions.router, prefix="/missions", tags=["Missions"])
-api_router.include_router(images.router, tags=["Images & Predictions"])
+
+# Core Infrastructure
+api_router.include_router(core.router, prefix="/core", tags=["Core Infrastructure"])
+
+# Use Case Groups
+api_router.include_router(spraying.router, prefix="/spraying", tags=["UC1/2: Spraying"])
+api_router.include_router(monitoring.router, prefix="/monitoring", tags=["UC3/4: Monitoring"])
+api_router.include_router(orchards.router, prefix="/orchards", tags=["UC5/6: Orchards"])

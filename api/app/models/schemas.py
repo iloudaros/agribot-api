@@ -1,73 +1,91 @@
-import uuid
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, date
+from typing import Optional, List, Dict, Any
+import uuid
 
-class MissionCreate(BaseModel):
+# --- 1. Core Infrastructure ---
+
+class RobotCreate(BaseModel):
+    name: str
+    serial_number: str
+    type: str
+    firmware_version: Optional[str] = None
+
+class Robot(RobotCreate):
+    id: int
+
+class FarmCreate(BaseModel):
+    name: str
+    owner_name: Optional[str] = None
+    center_lat: float
+    center_lon: float
+
+class FieldCreate(BaseModel):
+    farm_id: int
+    name: str
+    crop_name: Optional[str] = None
+    # Accepting a simple WKT string for polygon for simplicity
+    boundary_wkt: Optional[str] = None 
+
+# --- 2. UC1 & UC2: Spraying ---
+
+class SprayingMissionCreate(BaseModel):
     robot_id: int
     field_id: int
-    mission_type: str
+    mission_type: str = "spraying"
     start_time: datetime
-    end_time: datetime
-    travelled_distance_m: float | None = None
-    covered_area_m2: float | None = None
-    sprayed_fluid_l: float | None = None
-    target_fluid_density_lpha: float | None = None
-    setpoint_pressure_bar: float | None = None
-    cultivation_method: str | None = None
-    inference_model: str | None = None
-    context_crop_id: int | None = None
-    target_id: int | None = None
-    min_latitude: float | None = None
-    max_latitude: float | None = None
-    min_longitude: float | None = None
-    max_longitude: float | None = None
-    crop_weed_correlation: float | None = None
-    weed_liquid_correlation: float | None = None
+    end_time: Optional[datetime] = None
+    travelled_distance_m: Optional[float] = 0.0
+    covered_area_m2: Optional[float] = 0.0
+    sprayed_fluid_l: Optional[float] = 0.0
+    target_fluid_density_lpha: Optional[float] = None
+    cultivation_method: Optional[str] = None
 
-class Mission(MissionCreate):
-    id: int
-    user_id: int | None = None
-    created_at: datetime
-
-class RobotState(BaseModel):
-    timestamp: datetime
-    system_state: str | None = None
-    latitude_rad: float | None = None
-    longitude_rad: float | None = None
-    pose_x_m: float | None = None
-    pose_y_m: float | None = None
-    pose_theta_rad: float | None = None
-    speed_x_mps: float | None = None
-    speed_y_mps: float | None = None
-    speed_omega_radps: float | None = None
-    unit0_fluid_l: float | None = None
-    unit1_fluid_l: float | None = None
-    unit2_fluid_l: float | None = None
-    target_coverage_percent: float | None = None
-    avoid_coverage_percent: float | None = None
-
-class AgriEvent(BaseModel):
+class TelemetryPoint(BaseModel):
+    mission_id: int
     timestamp: datetime
     latitude: float
     longitude: float
-    altitude: float | None = None
-    event_type: str
-    event_value: float
+    speed_mps: Optional[float] = None
+    spray_pressure_bar: Optional[float] = None
+    flow_rate_lpm: Optional[float] = None
+    raw_status_json: Optional[Dict[str, Any]] = None
 
-class ImagePrediction(BaseModel):
-    detection_id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    class_name: str = Field(alias="class")
+# --- 3. UC3 & UC4: Monitoring ---
+
+class MonitoringObservationCreate(BaseModel):
+    robot_id: int
+    field_id: int
+    timestamp: datetime
+    latitude: float
+    longitude: float
+    altitude_m: Optional[float] = None
+    avg_foliage_area_cm2: Optional[float] = None
+    avg_ndvi: Optional[float] = None
+    avg_volume_cm3: Optional[float] = None
+    raw_data_json: Optional[Dict[str, Any]] = None
+
+# --- 4. UC5 & UC6: Orchards ---
+
+class TreeCreate(BaseModel):
+    field_id: int
+    tree_identifier: str
+    variety: Optional[str] = None
+    planting_date: Optional[date] = None
+    latitude: float
+    longitude: float
+
+class ImageUploadRequest(BaseModel):
+    tree_id: int
+    filename: str
+    content_type: str = "image/jpeg"
+
+class ImageDetection(BaseModel):
+    # This ID links to the uploaded image in the DB
+    # The user gets this ID after confirming the upload
+    class_name: str
     confidence: float
     x: float
     y: float
     width: float
     height: float
-
-class MissionImage(BaseModel):
-    id: int
-    mission_id: int
-    timestamp: datetime
-    image_url: str
-    latitude: float | None = None
-    longitude: float | None = None
-    camera_id: int | None = None
