@@ -1,0 +1,19 @@
+step	origin	destination	data	sample	file size																				
+before mission																									
+	user	connector	id, action [json]	"{""field"": ""field_01"", ""action"":  ""inspection""}"	1kb	Visualization for initiating task																			
+	connector	UGV	command to start mission		1kb																				
+inspection phase																									
+	connector	UGV	asking for update (per 1-2 seconds)	"** if ""inspecting"" continue, elif ""finished_inspection"" end mission;"	1kb	Visualization of status update																			
+	UGV	connector	status, location, timestamp [json]	"{""status"": ""inspecting"""", ""location"":{""lat"": 52.45,""lon"": 8.67},""YYYYMMDDHHmmSS""}"	1kb																				
+after inspection																									
+	UGV	connector	"weed position, confidence, bbox, filename [json]; filename [image]"	"{""name"": ""weeds_01.png"", ""confidence"": 70%, ""weed_loc"":{""lat"": 43.25, ""lon"": 7.55}, ""bbox""{""x_min"":4, ""x_max"": 14, ""y_min"": 8, ""y_max"": 75}}; weeds_01.png"	2mb/per object	Visualization of Inspection Results 																			
+	connector	user	asking for validation	"{""validation"": 1}"	1kb	"Visualization of low confidence weed approval; concluding on the final list to be spraying"																			
+																									
+before spraying																									
+	connector	UGV	 command to start spraying	"{""action"": ""spraying""}, "	1kb																				
+																									
+spraying phase																									
+	connector	UGV	asking for update (per 1-2 seconds)	"** if ""spraying"" continue, elif ""finished_spraying"" end mission;"	1kb																				
+	UGV	connector	status, location, timestamp [json]	"{""status"": ""spraying"", ""location"":{""lat"": 52.45,""lon"": 8.67},""YYYYMMDDHHmmSS""}"	1kb																				
+after mission																									
+	UGV	connector	mission status, duration, timestamp [json]	"{""status"": ""complete"", ""duration"": ""HHmmSS"", ""timestamp"": ""YYYYMMDDHHmmSS""}"																					

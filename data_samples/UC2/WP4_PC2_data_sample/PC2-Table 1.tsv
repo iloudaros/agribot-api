@@ -1,0 +1,21 @@
+Step	Origin	Destination	Data	Sample	File size	Comments
+before mission			no communication			
+						
+						
+before spraying			no communication			
+						
+						
+spraying phase			no communication			
+						
+						
+after mission						
+	connector	ARA	Polling every couple of seconds	"If not exists(mission_data) continue; else receive_mission_data;"		
+	ARA	connector	mission start/stop, robot ID, covered area, sprayed fluid, context/target [json]	"{""start_time_ms"": 1746773216805, ""end_time_ms"": 1746784879000, ""robot_id"": ""erxbot-XXXX"",""covered_area_m2"": 83945.99,""sprayed_fluid_l"": 41.79406,""context_eppo"": ""SOLTU"" ,""target_eppo"": ""WEED""}"	"1kB
+(if time series included, then of order MB)"	"Do we need to transmit the calculated duration ?
+Do we need to transmit the name of the farmer or field?
+Do we need to transmit the travelled distance ?
+Do we need to transmit a position of the field (GPS coords of field center e.g.) ?
+Do we need to transmit the time series or only the computed application map?
+Other parameters ?"
+			Liquid application [image/png]		<100kB	
+			Avoid (crop) and target (weed) density heatmap [image/png]		<100kB	

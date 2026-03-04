@@ -1,0 +1,27 @@
+step	origin	destination	data	sample	file size																				
+before mission																									
+	user	connector	id, action [json]	"{
+    ""field"": ""field_01"",
+    ""action"":  ""inspection""
+}"	1kb	Visualization for initiating task																			
+	connector	UGV	command to start mission		1kb																				
+after inspection																									
+	UGV	connector	"GPS location
+biomass
+ndvi"	"[
+  {
+      ""location"": {
+      ""latitude"": 34.0522,
+      ""longitude"": -118.2437
+    },
+    ""biomass"": 0.85,
+    ""ndvi"": 0.12,
+  },
+]"	2mb/per object	Visualization of Inspection Results. This is a JSON array that is sent only once the inspection has ended.																			
+	connector	user	asking for validation	"{""validation"": 1}"	1kb																				
+after mission																									
+	UGV	connector	mission status, duration, timestamp [json]	"{
+    ""status"": ""complete"",
+    ""duration"": ""HHmmSS"",
+    ""timestamp"": ""YYYYMMDDHHmmSS""
+}"																					
