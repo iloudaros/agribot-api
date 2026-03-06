@@ -66,7 +66,7 @@ The database is organized into logical groups rather than strict pilot cases, al
 
 ### Local vs Production Setup
 To start experimenting with the API:
-1.  Visit `https://github.com/iloudaros/agribot-local`
+1.  Visit the repository of the [AgriBot Data Lake Local Development Environment](https://github.com/iloudaros/agribot-local)
 2.  Follow the instructions to create a local instance of it using [Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Fx86-64%2Fstable%2Fbinary+download).
 
 *In case you encounter a 404 error with the link above, chances are you are not listed as a contributor at the repository. Please send an email to `iloudaros@microlab.ntua.gr` and we will sort it out.*
