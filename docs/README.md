@@ -12,23 +12,23 @@ The system is built on **FastAPI** (API Layer), **PostgreSQL + PostGIS** (Relati
 
 ## Table of Contents 
 
-1. [1. Architecture Overview](#1-architecture-overview)
-2. [2. Database Schema](#2-database-schema)
-3. [3. Getting Started](#3-getting-started)
+1. [Architecture Overview](#1-architecture-overview)
+2. [Database Schema](#2-database-schema)
+3. [Getting Started](#3-getting-started)
    * [Local vs Production Setup](#local-vs-production-setup)
    * [Authentication](#authentication)
-4. [4. Core Resources](#4-core-resources)
+4. [Core Resources](#4-core-resources)
    * [Users](#users)
    * [Farms and Fields](#farms-and-fields)
-5. [5. Missions](#5-missions)
-6. [6. Use Cases](#6-use-cases)
+5. [Missions](#5-missions)
+6. [Use Cases](#6-use-cases)
    * [🌽🌾 PC1 (AUA): Weed Identification and Spot Spraying for Wheat/Corn](#-pc1-aua-weed-identification-and-spot-spraying-for-wheatcorn)
    * [🥔 PC2 (Ecorobotix): Robotic Spraying of Weeds for Potatoes](#-pc2-ecorobotix-robotic-spraying-of-weeds-for-potatoes)
    * [🥬 PC3 (POLIBA): Robotic Fertilization Management for Leafy Vegetables in Open Field Conditions](#-pc3-poliba-robotic-fertilization-management-for-leafy-vegetables-in-open-field-conditions)
    * [🍅 PC4 (POLIBA): Robotic Technologies for Crop Monitoring and Management in Soilless Tomato Cultivation](#-pc4-poliba-robotic-technologies-for-crop-monitoring-and-management-in-soilless-tomato-cultivation)
    * [🍎🍐 PC5 (KUL): Robotic harvesting in orchards](#-pc5-kul-robotic-harvesting-in-orchards)
    * [🍎 PC6 (KUL): Robotic pruning and thinning with XR in orchards](#-pc6-kul-robotic-pruning-and-thinning-with-xr-in-orchards)
-7. [7. Image Handling (MinIO)](#7-image-handling-minio)
+7. [Image Handling (MinIO)](#7-image-handling-minio)
    * [The Presigned URL Pattern](#the-presigned-url-pattern)
 
 ---
