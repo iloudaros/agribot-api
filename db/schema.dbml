@@ -1,166 +1,165 @@
-// AgriBot Data Lake - Simplified Schema by Use Case
-// Version 4.0
-
-// ==========================================
-// 1. CORE IDENTITY & INFRASTRUCTURE
-// ==========================================
+// AgriBot Data Lake - Coherent Schema
+// Version 5.0
 
 TableGroup "Core Infrastructure" [color: #1E69FD] {
   users
   farms
+  farm_ownerships
   fields
-  //robots
+}
+
+Enum user_role {
+  admin
+  farmer
+  service_provider
 }
 
 Table users {
   id int [pk, increment]
-  username varchar [unique, not null]
+  username varchar [not null, unique]
   password_hash varchar [not null]
-  role varchar [default: 'worker'] // 'admin', 'farmer', 'worker'
-  is_active boolean [default: true]
-  created_at timestamp [default: `now()`]
-  Note: 'Central authentication table.'
+  name varchar
+  surname varchar
+  role user_role [not null, default: 'farmer']
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  Note: 'Application users used for JWT authentication.'
 }
 
 Table farms {
   id int [pk, increment]
   name varchar [not null]
-  owner varchar [ref: > users.id ]
-  location_center geometry // PostGIS Point
-  created_at timestamp [default: `now()`]
+  location_center geometry // Postgis Point
+  created_at timestamptz [not null, default: `now()`]
+  Note: 'Farm registry. Ownership is defined in farm_ownerships.'
+}
+
+Table farm_ownerships {
+  farm_id int [not null, ref: > farms.id]
+  user_id int [not null, ref: > users.id]
+  ownership_percentage decimal(5,2) [not null]
+
+  indexes {
+    (farm_id, user_id) [pk]
+  }
+
+  Note: 'Many-to-many ownership relation between users and farms.'
 }
 
 Table fields {
   id int [pk, increment]
-  farm_id int [ref: > farms.id]
+  farm_id int [not null, ref: > farms.id]
   name varchar [not null]
-  crop_name varchar // e.g., 'Potato', 'Tomato'
-  boundary geometry // PostGIS Polygon
-  created_at timestamp [default: `now()`]
-  Note: 'Represents a specific plot of land.'
+  crop_name varchar
+  boundary geometry //Postgis Polygon
+  Note: 'Field / plot registry. boundary is a PostGIS Polygon in SRID 4326.'
 }
 
-// Table robots {
-//   id int [pk, increment]
-//   name varchar [unique, not null]
-//   serial_number varchar
-//   type varchar // 'sprayer', 'scout', 'harvester'
-//   firmware_version varchar
-// }
-
-// ==========================================
-// 2. UC1 & UC2: SPRAYING & WEEDING
-// ==========================================
-
-TableGroup "UC1 & UC2: Spraying" [color: #2D862B] {
-  uc1_uc2_missions
-  uc1_uc2_telemetry
+TableGroup "Missions" {
+  missions
+  mission_types
 }
 
-Table uc1_uc2_missions {
-  id int [pk, increment]
-  //robot_id int [ref: > robots.id]
-  field_id int [ref: > fields.id]
-  mission_type varchar // 'spraying', 'weeding'
-  start_time timestamp
-  end_time timestamp
-  travelled_distance_m float
-  covered_area_m2 float
-  sprayed_fluid_l float
-  target_fluid_density_lpha float
-  cultivation_method varchar
-  created_at timestamp [default: `now()`]
-  Note: 'Summary data for spraying/weeding missions (Ecorobotix style).'
+Table mission_types{
+  id varchar [pk]
+  pilot_case varchar
+  partner varhcar
+  description varchar
 }
 
-Table uc1_uc2_telemetry {
-  mission_id int [ref: > uc1_uc2_missions.id]
-  timestamp timestamp
-  latitude double
-  longitude double
-  speed_mps float
-  spray_pressure_bar float
-  flow_rate_lpm float
-  raw_status_json jsonb
-  
-  indexes {
-    (mission_id, timestamp) [pk]
-  }
-  Note: 'High-frequency logs (GPS, Pressure, Speed) for spraying missions.'
+enum mission_status{
+  ongoing
+  complete
+  canceled
+  aborted
 }
 
-// ==========================================
-// 3. UC3 & UC4: CROP MONITORING
-// ==========================================
-
-TableGroup "UC3 & UC4: Monitoring" [color: #D95B16] {
-  uc3_uc4_observations
+Table missions {
+  id varchar [pk]
+  commander int [ref: > users.id]
+  field int [ref: > fields.id]
+  type varchar [ref: > mission_types.id]
+  status mission_status
+  start timestampz
+  stop timestampz
+  date timestampz
 }
 
-Table uc3_uc4_observations {
-  id int [pk, increment]
-  //robot_id int [ref: > robots.id]
-  field_id int [ref: > fields.id]
-  timestamp timestamp
-  latitude double
-  longitude double
-  altitude_m float
-  avg_foliage_area_cm2 float
-  avg_ndvi float
-  avg_volume_cm3 float
-  raw_data_json jsonb
-  Note: 'Discrete observation points for monitoring leafy vegetables or tomatoes.'
+TableGroup "Pilot Case 1 (AUA): Weed Identification and spot spraying for wheat/corn" [color: #2D862B]{
+pc1_weed
 }
 
-// ==========================================
-// 4. UC5 & UC6: ORCHARDS (HARVESTING)
-// ==========================================
-
-TableGroup "UC5 & UC6: Orchards" [color: #A934C1] {
-  uc5_uc6_trees
-  uc5_uc6_harvest_data
-  uc5_uc6_images
-  uc5_uc6_detections
-}
-
-Table uc5_uc6_trees {
-  id int [pk, increment]
-  field_id int [ref: > fields.id]
-  tree_identifier varchar // e.g., 'MALUS-GALA-101'
-  variety varchar
-  planting_date date
-  latitude double
-  longitude double
-  Note: 'Static registry of individual trees in an orchard.'
-}
-
-Table uc5_uc6_harvest_data {
-  id int [pk, increment]
-  tree_id int [ref: > uc5_uc6_trees.id]
-  mission_date timestamp
-  fruit_count int
-  size_distribution_json jsonb
-  color_distribution_json jsonb
-  Note: 'Aggregated harvest stats per tree.'
-}
-
-Table uc5_uc6_images {
-  id int [pk, increment]
-  tree_id int [ref: > uc5_uc6_trees.id]
-  timestamp timestamp
-  image_url varchar
-  camera_type varchar
-  Note: 'Images captured of specific trees.'
-}
-
-Table uc5_uc6_detections {
-  image_id int [ref: > uc5_uc6_images.id]
-  detection_uuid uuid
-  class_name varchar // 'fruit', 'branch'
+Table pc1_weed {
+  id int [pk]
+  inspection int [ref: > missions.id]
+  name varchar
+  image varchar
   confidence float
-  bbox_x float
-  bbox_y float
-  bbox_w float
-  bbox_h float
-  Note: 'Computer vision outputs (bounding boxes) on specific images.'
+  weed_loc geometry // Postgis Point
+  is_sprayed bool
+  spray_time timestmapz
 }
+
+
+
+TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and volunteer potatoes" [color: #D95B16]{
+  pc2_spraying_metadata
+  pc2_spraying_mission
+
+}
+
+Table pc2_spraying_metadata
+{
+  id varchar [pk, ref: - missions.id]
+  max_lat float
+  min_lat float
+  max_long float
+  min_long float
+  area_analyzed float
+  average_density float
+  crop_weed_correlation float
+  weed_liquid_correlation float
+}
+
+Table pc2_spraying_mission 
+{
+  id varchar [pk, ref: > missions.id]
+  properties jsonb
+}
+
+TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy vegetables in open field conditions" [color: #A934C1]{
+pc3_inspections
+}
+
+Table pc3_inspections
+{
+  id varchar [pk, ref: > missions.id]
+  location geometry // Postgis point
+  biomass float(1.2)
+  ndvi float(1.2)
+
+}
+
+
+
+
+TableGroup "Pilot Case 4 (POLIBA): Robotic technologies for crop monitoring and management in soilless tomato cultivation" {
+
+
+}
+
+TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" {
+
+
+}
+
+TableGroup "Pilot Case 6 (KUL): Robotic pruning and thinning with XR in orchards" {
+
+
+}
+
+
+
+
+
+

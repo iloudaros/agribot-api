@@ -10,7 +10,7 @@ The system is built on **FastAPI** (API Layer), **PostgreSQL + PostGIS** (Relati
 
 ---
 
-## Table of Contents
+## Table of Contents 
 
 1.  [Architecture Overview](#1-architecture-overview)
 2.  [Database Schema](#2-database-schema)
@@ -20,9 +20,9 @@ The system is built on **FastAPI** (API Layer), **PostgreSQL + PostGIS** (Relati
 4.  [Core Resources](#4-core-resources)
     *   [Farms, Fields & Robots](#farms-fields--robots)
 5.  [Use Cases](#5-use-cases)
-    *   [🚜 UC1 & UC2: Spraying & Weeding](#-uc1--uc2-spraying--weeding)
-    *   [🌿 UC3 & UC4: Crop Monitoring](#-uc3--uc4-crop-monitoring)
-    *   [🍎 UC5 & UC6: Orchards & Harvesting](#-uc5--uc6-orchards--harvesting)
+    *   [🚜 PC1 & PC2: Spraying & Weeding](#-pc1--pc2-spraying--weeding)
+    *   [🌿 PC3 & PC4: Crop Monitoring](#-pc3--pc4-crop-monitoring)
+    *   [🍎 PC5 & PC6: Orchards & Harvesting](#-pc5--pc6-orchards--harvesting)
 6.  [Image Handling (MinIO)](#6-image-handling-minio)
     *   [The Presigned URL Pattern](#the-presigned-url-pattern)
     *   [Bucket Strategy](#bucket-strategy)
@@ -52,9 +52,9 @@ The platform follows a Data Lake architecture:
 The database is organized into logical groups rather than strict pilot cases, allowing for better data reuse.
 
 *   **Core Infrastructure:** `users`, `farms`, `fields`, `robots`
-*   **Spraying (UC1/2):** `uc1_uc2_missions`, `uc1_uc2_telemetry`
-*   **Monitoring (UC3/4):** `uc3_uc4_observations`
-*   **Orchards (UC5/6):** `uc5_uc6_trees`, `uc5_uc6_harvest_data`, `uc5_uc6_detections`
+*   **Spraying (PC1/2):** `uc1_uc2_missions`, `uc1_uc2_telemetry`
+*   **Monitoring (PC3/4):** `uc3_uc4_observations`
+*   **Orchards (PC5/6):** `uc5_uc6_trees`, `uc5_uc6_harvest_data`, `uc5_uc6_detections`
 
 **Additional Information:**
 *   You can view the schema [here](https://dbdiagram.io/d/AgRibot-6849f4b1a463a450da2514f5) 
@@ -92,18 +92,41 @@ Include the header in all requests: `Authorization: Bearer <your_token>`
 
 Before uploading mission data, the infrastructure must be defined.
 
-### Farms, Fields & Robots
-*   **GET /core/farms**: List all farms.
-*   **POST /core/robots**: Register a new robot.
+### Users
+
+#### Connector Side
+...
+
+#### FIRMP Side
+**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions. The Connector will reference these entities when uploading mission data.
+
+### Farms and Fields
+
+#### Connector Side
+...
+
+#### FIRMP Side
+**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions. The Connector will reference these entities when uploading mission data.
 
 ---
 
-## 5. Use Cases
+## 5. Missions
+**Context:** A mission represents a specific task performed by a robot, such as spraying, monitoring, or harvesting. Each mission is associated with a specific field, and in essence represents aspecific Pilot Case.
 
-### 🚜 UC1 & UC2: Spraying & Weeding
-**Context:** Robots traversing a field to spray liquids or mechanically remove weeds.
+#### Connector Side
+...
 
-#### 1. Create Mission Summary
+#### FIRMP Side
+...
+
+## 6. Use Cases
+
+### 🌽 PC1 (AUA): Weed Identification and Spot Spraying for Wheat/Corn" 
+**Context:** Robots traversing a field to spray liquids on weeds.
+
+#### Connector Side
+
+##### 1. Create Mission Summary
 Call this at the **start** or **end** of a mission to initialize the record.
 `POST /api/v1/spraying/missions`
 
@@ -120,7 +143,7 @@ Call this at the **start** or **end** of a mission to initialize the record.
 }
 ```
 
-#### 2. Upload Telemetry (Bulk)
+##### 2. Upload Telemetry (Bulk)
 Upload high-frequency logs (GPS, speed, pressure) in batches.
 `POST /api/v1/spraying/telemetry`
 
@@ -137,12 +160,28 @@ Upload high-frequency logs (GPS, speed, pressure) in batches.
 ]
 ```
 
+
+#### FIRMP Side
+We push the data to the FIRMP platform for visualization and analysis.
+
+---
+### 🥔 PC2 (Ecorobotix): Robotic Spraying of Weeds for Potatoes
+**Context:** Robots traversing a field to spray liquids on weeds.
+
+#### Connector Side
+...
+
+#### FIRMP Side
+...
+
 ---
 
-### 🌿 UC3 & UC4: Crop Monitoring
+### 🥬 PC3 (POLIBA): Robotic Fertilization Management for Leafy Vegetables in Open Field Conditions
 **Context:** Robots scanning crops (Leafy vegetables, Tomatoes) to measure growth indices like NDVI or Biomass.
 
-#### 1. Upload Field Observation
+#### Connector Side
+
+##### 1. Upload Field Observation
 `POST /api/v1/monitoring/observations`
 
 ```json
@@ -158,45 +197,35 @@ Upload high-frequency logs (GPS, speed, pressure) in batches.
 }
 ```
 
+#### FIRMP Side
+We push the data to the FIRMP platform for visualization and analysis.
+
+---
+### 🍅 PC4 (POLIBA): Robotic Technologies for Crop Monitoring and Management in Soilless Tomato Cultivation
+**Context:** Robots scanning crops (Leafy vegetables, Tomatoes) to measure growth indices like NDVI or Biomass.
+
+#### Connector Side
+...
+
+#### FIRMP Side
+...
+
 ---
 
-### 🍎 UC5 & UC6: Orchards & Harvesting
+### 🍐 PC5 (KUL): Robotic harvesting in orchards
 **Context:** Managing individual trees, harvesting fruit, and running AI detections on images.
 
-#### 1. Register a Tree
-Map a physical tree tag (e.g., QR code) to a GPS location.
-`POST /api/v1/orchards/trees`
+...
 
-```json
-{
-  "field_id": 3,
-  "tree_identifier": "MALUS-GALA-101",
-  "variety": "Gala",
-  "latitude": 46.4981,
-  "longitude": 11.3489
-}
-```
+---
+### 🍎 PC6 (KUL): Robotic pruning and thinning with XR in orchards
+**Context:** Managing individual trees, harvesting fruit, and running AI detections on images.
 
-#### 2. Upload Fruit Detections
-After uploading an image (see Section 6), submit the AI results.
-`POST /api/v1/orchards/images/{image_id}/detections`
-
-```json
-[
-  {
-    "class_name": "apple",
-    "confidence": 0.98,
-    "x": 631.5,
-    "y": 1306.5,
-    "width": 95,
-    "height": 91
-  }
-]
-```
+...
 
 ---
 
-## 6. Image Handling (MinIO)
+## 7. Image Handling (MinIO)
 
 We use MinIO for storing large files. To ensure high performance, we use **Presigned URLs**. This allows the Connector to upload files directly to the storage server, bypassing the API bottleneck.
 

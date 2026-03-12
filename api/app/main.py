@@ -4,7 +4,7 @@ from app.core.db import connect_to_db, close_db_connection, connect_to_minio
 
 app = FastAPI(
     title="AgriBot Data Lake API",
-    description="API for ingesting agricultural mission and sensor data into the data lake.",
+    description="API for ingesting agricultural mission data into the data lake.",
     version="1.0.0"
 )
 
