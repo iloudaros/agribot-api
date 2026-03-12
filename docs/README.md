@@ -121,7 +121,7 @@ Before uploading mission data, the infrastructure must be defined.
 
 ## 6. Use Cases
 
-### 🌽 PC1 (AUA): Weed Identification and Spot Spraying for Wheat/Corn" 
+### 🌽🌾 PC1 (AUA): Weed Identification and Spot Spraying for Wheat/Corn" 
 **Context:** Robots traversing a field to spray liquids on weeds.
 
 #### Connector Side
@@ -212,7 +212,7 @@ We push the data to the FIRMP platform for visualization and analysis.
 
 ---
 
-### 🍐 PC5 (KUL): Robotic harvesting in orchards
+### 🍎🍐 PC5 (KUL): Robotic harvesting in orchards
 **Context:** Managing individual trees, harvesting fruit, and running AI detections on images.
 
 ...
