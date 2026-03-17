@@ -99,10 +99,10 @@ Before uploading mission data, the infrastructure must be defined.
 ### Users
 
 #### Connector Side
-...
+The Connector will have a service account in our database. This account is used to authenticate API calls and push data to the database. The Connector does not manage user accounts for farmers; instead, it relies on the FIRMP platform to handle farmer accounts and push relevant data to our database, so that farmers can later authenticate on the Connector side.
 
 #### FIRMP Side
-**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions. The Connector will reference these entities when uploading mission data.
+**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions.So the FIRMP has to be able to push those farmers to our db, so they can later authenticate on the connector side.  At the same time, the FIRMP itself, has its own user in our db so it can get authenticated and push data to our db.
 
 ### Farms and Fields
 

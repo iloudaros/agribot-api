@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-03-12T00:38:08.681Z
+-- Generated at: 2026-03-17T20:35:41.781Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -99,6 +99,18 @@ CREATE TABLE "pc3_inspections" (
   "location" geometry,
   "biomass" float(1.2),
   "ndvi" float(1.2)
+);
+
+CREATE TABLE "pc4_pending" (
+  "pending" int
+);
+
+CREATE TABLE "pc5_pending" (
+  "pending" int
+);
+
+CREATE TABLE "pc6_pending" (
+  "pending" int
 );
 
 COMMENT ON TABLE "users" IS 'Application users used for JWT authentication.';

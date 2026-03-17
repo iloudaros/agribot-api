@@ -19,6 +19,12 @@ class FarmCreate(BaseModel):
     center_lon: float
     ownership_percentage: float = 100.0
 
+class FarmBatchCreate(BaseModel):
+    name: str
+    center_lat: float
+    center_lon: float
+    ownership_percentage: float = 100.0
+    owner_id: int  
 
 class Farm(BaseModel):
     id: int

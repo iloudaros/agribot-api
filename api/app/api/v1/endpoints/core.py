@@ -1,14 +1,70 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 
 from app.core.db import get_db_conn
-from app.models.schemas import Farm, FarmCreate, Field, FieldCreate, MissionType
-from app.security import UserInDB, get_current_active_user
+from app.models.schemas import Farm, FarmCreate, FarmBatchCreate, Field, FieldCreate, MissionType, UserCreate, UserResponse
+from app.security import UserInDB, get_current_active_user, get_password_hash
 
 router = APIRouter()
 
+
+@router.post("/users/batch", response_model=List[UserResponse], status_code=status.HTTP_201_CREATED)
+def create_users_batch(
+    users_in: List[UserCreate],
+    conn=Depends(get_db_conn),
+    current_user: UserInDB = Depends(get_current_active_user),
+):
+    # 1. Authorization Check
+    # Only service_providers (like FIRMP) or admins should be able to batch upload users
+    if current_user.role not in ["service_provider", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Only service_providers or admins can upload users."
+        )
+
+    if not users_in:
+        return []
+
+    # 2. Hash passwords and prepare the tuple list for bulk insertion
+    data_tuples = [
+        (
+            u.username,
+            get_password_hash(u.password),
+            u.name,
+            u.surname,
+            u.role,
+            u.is_active
+        )
+        for u in users_in
+    ]
+
+    # 3. Perform Bulk Insert
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Using ON CONFLICT DO NOTHING ensures the query doesn't crash 
+        # if a username already exists in the database.
+        query = """
+            INSERT INTO users (username, password_hash, name, surname, role, is_active)
+            VALUES %s
+            ON CONFLICT (username) DO NOTHING
+            RETURNING id, username, name, surname, role, is_active
+        """
+        
+        try:
+            # fetch=True is required to get the RETURNING clause results back
+            inserted_users = execute_values(cur, query, data_tuples, fetch=True)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail=f"Database error during bulk upload: {str(e)}"
+            )
+
+    # Note: If a user was skipped due to a duplicate username, they won't 
+    # appear in this returned list.
+    return inserted_users
 
 def _ensure_farm_access(cur, farm_id: int, user: UserInDB) -> None:
     if user.role == "admin":
@@ -68,6 +124,66 @@ def create_farm(
         }
     ]
     return new_farm
+
+
+@router.post("/farms/batch", response_model=List[Farm], status_code=status.HTTP_201_CREATED)
+def create_farms_batch(
+    farms_in: List[FarmBatchCreate],
+    conn=Depends(get_db_conn),
+    current_user: UserInDB = Depends(get_current_active_user),
+):
+    if current_user.role not in ["service_provider", "admin"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+
+    if not farms_in:
+        return []
+
+    # PostGIS ST_MakePoint expects (Longitude, Latitude)
+    farm_tuples = [(f.name, f.center_lon, f.center_lat) for f in farms_in]
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # 1. Insert the farms
+        query = """
+            INSERT INTO farms (name, location_center)
+            VALUES %s
+            RETURNING id, name, ST_Y(location_center) AS center_lat, ST_X(location_center) AS center_lon
+        """
+        # The template applies the PostGIS function to the variables provided in the tuple
+        template = "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+        
+        try:
+            inserted_farms = execute_values(cur, query, farm_tuples, template=template, fetch=True)
+            
+            # 2. Insert the ownerships
+            # execute_values preserves order, so the returned IDs map 1:1 with farms_in
+            ownership_tuples = [
+                (inserted_farms[i]["id"], farms_in[i].owner_id, farms_in[i].ownership_percentage)
+                for i in range(len(farms_in))
+            ]
+            
+            own_query = """
+                INSERT INTO farm_ownerships (farm_id, user_id, ownership_percentage)
+                VALUES %s
+                ON CONFLICT (farm_id, user_id) DO NOTHING
+            """
+            execute_values(cur, own_query, ownership_tuples)
+            conn.commit()
+
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    # Format the response to match the Pydantic Farm model
+    result = []
+    for i, farm in enumerate(inserted_farms):
+        farm_dict = dict(farm)
+        farm_dict["owners"] = [{
+            "user_id": farms_in[i].owner_id,
+            "ownership_percentage": farms_in[i].ownership_percentage
+        }]
+        result.append(farm_dict)
+        
+    return result
 
 
 @router.get("/farms", response_model=List[Farm])
@@ -151,6 +267,44 @@ def create_field(
         conn.commit()
 
     return new_field
+
+@router.post("/fields/batch", response_model=List[Field], status_code=status.HTTP_201_CREATED)
+def create_fields_batch(
+    fields_in: List[FieldCreate],
+    conn=Depends(get_db_conn),
+    current_user: UserInDB = Depends(get_current_active_user),
+):
+    if current_user.role not in ["service_provider", "admin"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+
+    if not fields_in:
+        return []
+
+    # Note: We pass boundary_wkt twice so we can use it in the CASE WHEN template condition
+    field_tuples = [
+        (f.farm_id, f.name, f.crop_name, f.boundary_wkt, f.boundary_wkt)
+        for f in fields_in
+    ]
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        query = """
+            INSERT INTO fields (farm_id, name, crop_name, boundary)
+            VALUES %s
+            RETURNING id, farm_id, name, crop_name, ST_AsText(boundary) AS boundary_wkt
+        """
+        
+        # Template gracefully handles both missing boundaries (NULL) and valid WKT strings
+        template = "(%s, %s, %s, CASE WHEN %s::text IS NULL THEN NULL ELSE ST_GeomFromText(%s::text, 4326) END)"
+        
+        try:
+            inserted_fields = execute_values(cur, query, field_tuples, template=template, fetch=True)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            # If a farm_id doesn't exist, Postgres will throw a foreign key violation here
+            raise HTTPException(status_code=400, detail=f"Upload failed. Ensure all farm_ids exist. Error: {str(e)}")
+
+    return inserted_fields
 
 
 @router.get("/fields", response_model=List[Field])

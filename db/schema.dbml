@@ -55,7 +55,7 @@ Table fields {
   Note: 'Field / plot registry. boundary is a PostGIS Polygon in SRID 4326.'
 }
 
-TableGroup "Missions" {
+TableGroup "Missions" [color: #1E69FD]{
   missions
   mission_types
 }
@@ -110,7 +110,7 @@ TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and v
 
 Table pc2_spraying_metadata
 {
-  id varchar [pk, ref: - missions.id]
+  id varchar [pk, ref: > missions.id]
   max_lat float
   min_lat float
   max_long float
@@ -143,23 +143,27 @@ Table pc3_inspections
 
 
 
-TableGroup "Pilot Case 4 (POLIBA): Robotic technologies for crop monitoring and management in soilless tomato cultivation" {
-
-
+TableGroup "Pilot Case 4 (POLIBA): Robotic technologies for crop monitoring and management in soilless tomato cultivation" [color: #050505] {
+  pc4_pending
 }
 
-TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" {
-
-
+Table pc4_pending {
+  pending int
 }
 
-TableGroup "Pilot Case 6 (KUL): Robotic pruning and thinning with XR in orchards" {
+TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" [color: #050505] {
+  pc5_pending
+}
 
-
+Table pc5_pending {
+  pending int
 }
 
 
+TableGroup "Pilot Case 6 (KUL): Robotic pruning and thinning with XR in orchards" [color: #050505] {
+  pc6_pending
+}
 
-
-
-
+Table pc6_pending {
+  pending int
+}

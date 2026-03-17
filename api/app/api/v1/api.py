@@ -1,38 +1,57 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import token, core, spraying, monitoring, orchards
+from app.api.v1.endpoints import auth, core, pc1, pc2, pc3,# pc4, pc5, pc6
 
 api_router = APIRouter()
 
 # Authentication
 api_router.include_router(
-    token.router,
-    prefix="/token",
+    auth.router,
+    prefix="/auth",
     tags=["Authentication"],
 )
 
-# Core Infrastructure
+# Core Infrastructure (Stays unchanged)
 api_router.include_router(
     core.router,
     prefix="/core",
     tags=["Core Infrastructure"],
 )
 
-# Use Case Groups
+# Pilot Cases
 api_router.include_router(
-    spraying.router,
-    prefix="/spraying",
-    tags=["UC1/2: Spraying"],
+    pc1.router,
+    prefix="/pc1",
+    tags=["PC1: Weed Identification & Spot Spraying"],
 )
 
 api_router.include_router(
-    monitoring.router,
-    prefix="/monitoring",
-    tags=["UC3/4: Monitoring"],
+    pc2.router,
+    prefix="/pc2",
+    tags=["PC2: Robotic Spraying"],
 )
 
 api_router.include_router(
-    orchards.router,
-    prefix="/orchards",
-    tags=["UC5/6: Orchards"],
+    pc3.router,
+    prefix="/pc3",
+    tags=["PC3: Open Field Monitoring"],
 )
+
+# api_router.include_router(
+#     pc4.router,
+#     prefix="/pc4",
+#     tags=["PC4: ..."],
+# )
+
+
+# api_router.include_router(
+#     pc5.router,
+#     prefix="/pc5",
+#     tags=["PC5: Orchards"],
+# )
+
+# api_router.include_router(
+#     pc6.router,
+#     prefix="/pc6",
+#     tags=["PC6: Orchards"],
+# )
