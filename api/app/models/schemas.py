@@ -6,8 +6,9 @@ from pydantic import BaseModel, Field as PydanticField
 
 MissionStatus = Literal["ongoing", "complete", "canceled", "aborted"]
 SprayingMissionType = Literal["pc1_inspection", "pc1_spraying", "pc2_spraying"]
+PC1MissionStatus = Literal["ongoing", "inspection_complete", "spraying_complete", "aborted"]
 
-
+# Core Infrastructure Schemas
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -65,6 +66,7 @@ class Field(BaseModel):
     boundary_wkt: Optional[str] = None
 
 
+# Mission Schemas
 class MissionType(BaseModel):
     id: str
     pilot_case: Optional[str] = None
@@ -93,6 +95,10 @@ class Mission(MissionBase):
     id: str
     commander_id: int
     end_time: Optional[datetime] = None
+
+class PC1MissionState(BaseModel):
+    mission_id: str
+    status: PC1MissionStatus
 
 
 class PC2SprayingMetadata(BaseModel):
@@ -128,13 +134,16 @@ class SprayingMission(BaseModel):
     mission_date: Optional[datetime] = None
     pc2_properties: Optional[Dict[str, Any]] = None
     pc2_metadata: Optional[PC2SprayingMetadata] = None
-    
+
+
+# PC1 Schemas
 class WeedUpdate(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
 
 
 class WeedCreate(BaseModel):
+    id: str  
     inspection_id: str
     name: Optional[str] = None
     image: Optional[str] = None
@@ -145,8 +154,15 @@ class WeedCreate(BaseModel):
     spray_time: Optional[datetime] = None
 
 
+class WeedBatchUpdateItem(BaseModel):
+    id: str  
+    inspection_id: str 
+    is_sprayed: bool
+    spray_time: Optional[datetime] = None
+
+
 class Weed(BaseModel):
-    id: int
+    id: str 
     inspection_id: str
     name: Optional[str] = None
     image: Optional[str] = None
@@ -155,6 +171,12 @@ class Weed(BaseModel):
     longitude: Optional[float] = None
     is_sprayed: bool
     spray_time: Optional[datetime] = None
+
+
+
+
+
+
 
 
 class MonitoringInspectionCreate(BaseModel):
