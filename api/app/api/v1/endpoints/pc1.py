@@ -25,39 +25,39 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this field")
 
 
-@router.post("/missions", response_model=SprayingMission, status_code=status.HTTP_201_CREATED)
-def create_pc1_mission(
-    mission: SprayingMissionCreate,
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user),
-):
-    if mission.mission_type not in ["pc1_inspection", "pc1_spraying"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Endpoint only accepts pc1_inspection or pc1_spraying mission types",
-        )
+# @router.post("/missions", response_model=SprayingMission, status_code=status.HTTP_201_CREATED)
+# def create_pc1_mission(
+#     mission: SprayingMissionCreate,
+#     conn=Depends(get_db_conn),
+#     user: UserInDB = Depends(get_current_active_user),
+# ):
+#     if mission.mission_type not in ["pc1_inspection", "pc1_spraying"]:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Endpoint only accepts pc1_inspection or pc1_spraying mission types",
+#         )
 
-    mission_id = mission.id or str(uuid.uuid4())
-    mission_date = mission.mission_date or mission.start_time
+#     mission_id = mission.id or str(uuid.uuid4())
+#     mission_date = mission.mission_date or mission.start_time
 
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        _ensure_field_access(cur, mission.field_id, user)
+#     with conn.cursor(cursor_factory=RealDictCursor) as cur:
+#         _ensure_field_access(cur, mission.field_id, user)
 
-        cur.execute(
-            """
-            INSERT INTO missions
-                (id, commander_id, field_id, mission_type, status, start_time, end_time, mission_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, commander_id, field_id, mission_type, status, start_time, end_time, mission_date
-            """,
-            (mission_id, user.id, mission.field_id, mission.mission_type, mission.status, mission.start_time, mission.end_time, mission_date),
-        )
-        new_mission = cur.fetchone()
-        new_mission["pc2_properties"] = None
-        new_mission["pc2_metadata"] = None
-        conn.commit()
+#         cur.execute(
+#             """
+#             INSERT INTO missions
+#                 (id, commander_id, field_id, mission_type, status, start_time, end_time, mission_date)
+#             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+#             RETURNING id, commander_id, field_id, mission_type, status, start_time, end_time, mission_date
+#             """,
+#             (mission_id, user.id, mission.field_id, mission.mission_type, mission.status, mission.start_time, mission.end_time, mission_date),
+#         )
+#         new_mission = cur.fetchone()
+#         new_mission["pc2_properties"] = None
+#         new_mission["pc2_metadata"] = None
+#         conn.commit()
 
-    return new_mission
+#     return new_mission
 
 
 @router.get("/missions", response_model=List[SprayingMission])
@@ -115,6 +115,48 @@ def create_pc1_weed(
         conn.commit()
 
     return new_weed
+
+
+@router.patch("/weeds/{weed_id}", response_model=Weed)
+def update_pc1_weed(
+    weed_id: int,
+    weed_update: WeedUpdate,
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user),
+):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # 1. Look up the weed and its associated field to check permissions
+        cur.execute("""
+            SELECT w.id, m.field_id 
+            FROM pc1_weed w
+            JOIN missions m ON m.id = w.inspection_id
+            WHERE w.id = %s
+        """, (weed_id,))
+        weed_row = cur.fetchone()
+
+        if not weed_row:
+            raise HTTPException(status_code=404, detail="Weed not found")
+
+        # 2. Check access using the helper function already defined in pc1.py
+        _ensure_field_access(cur, weed_row["field_id"], user)
+
+        # 3. Perform the update
+        cur.execute(
+            """
+            UPDATE pc1_weed
+            SET is_sprayed = %s, spray_time = %s
+            WHERE id = %s
+            RETURNING 
+                id, inspection_id, name, image, confidence, 
+                ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, 
+                is_sprayed, spray_time
+            """,
+            (weed_update.is_sprayed, weed_update.spray_time, weed_id),
+        )
+        updated_weed = cur.fetchone()
+        conn.commit()
+
+    return updated_weed
 
 
 @router.get("/weeds/{inspection_id}", response_model=List[Weed])

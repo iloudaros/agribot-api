@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, core, pc1, pc2, pc3#, pc4, pc5, pc6
+from app.api.v1.endpoints import auth, core, missions, pc1, pc2, pc3#, pc4, pc5, pc6
 
 api_router = APIRouter()
 
@@ -16,6 +16,13 @@ api_router.include_router(
     core.router,
     prefix="/core",
     tags=["Core Infrastructure"],
+)
+
+# Missions (Generic)
+api_router.include_router(
+    missions.router,
+    prefix="/missions",
+    tags=["Missions (Generic)"],
 )
 
 # Pilot Cases

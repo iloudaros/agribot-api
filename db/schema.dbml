@@ -77,12 +77,12 @@ enum mission_status{
 Table missions {
   id varchar [pk]
   commander int [ref: > users.id]
-  field int [ref: > fields.id]
-  type varchar [ref: > mission_types.id]
+  field_id int [ref: > fields.id]
+  mission_type varchar [ref: > mission_types.id]
   status mission_status
-  start timestamptz
-  stop timestamptz
-  date timestamptz
+  start_time timestamptz
+  stop_time timestamptz
+  mission_date timestamptz
 }
 
 TableGroup "Pilot Case 1 (AUA): Weed Identification and spot spraying for wheat/corn" [color: #2D862B]{
