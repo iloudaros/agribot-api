@@ -109,7 +109,7 @@ def create_pc1_weed(
             VALUES (%s, %s, %s, %s, CASE WHEN %s IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s, %s), 4326) END, %s, %s)
             RETURNING id, inspection_id, name, image, confidence, ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, is_sprayed, spray_time
             """,
-            (weed.inspection_id, weed.name, weed.image, weed.confidence, weed.latitude, weed.longitude, weed.latitude, weed.is_sprayed, weed.spray_time),
+            (weed.inspection_id, weed.name, weed.image, weed.confidence, weed.longitude, weed.latitude, weed.latitude, weed.is_sprayed, weed.spray_time),
         )
         new_weed = cur.fetchone()
         conn.commit()
