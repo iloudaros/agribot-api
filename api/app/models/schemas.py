@@ -105,6 +105,30 @@ class PC2SprayingMetadata(BaseModel):
     crop_weed_correlation: Optional[float] = None
     weed_liquid_correlation: Optional[float] = None
 
+class SprayingMissionCreate(BaseModel):
+    id: Optional[str] = None
+    field_id: int
+    mission_type: SprayingMissionType
+    status: MissionStatus = "complete"
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    mission_date: Optional[datetime] = None
+    pc2_properties: Optional[Dict[str, Any]] = None
+    pc2_metadata: Optional[PC2SprayingMetadata] = None
+
+
+class SprayingMission(BaseModel):
+    id: str
+    commander_id: Optional[int] = None
+    field_id: Optional[int] = None
+    mission_type: str
+    status: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    mission_date: Optional[datetime] = None
+    pc2_properties: Optional[Dict[str, Any]] = None
+    pc2_metadata: Optional[PC2SprayingMetadata] = None
+    
 class WeedUpdate(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None

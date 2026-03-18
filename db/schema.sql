@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-03-18T02:52:54.365Z
+-- Generated at: 2026-03-18T10:57:50.758Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -61,12 +61,12 @@ CREATE TABLE "mission_types" (
 CREATE TABLE "missions" (
   "id" varchar PRIMARY KEY,
   "commander" int,
-  "field" int,
-  "type" varchar,
+  "field_id" int,
+  "mission_type" varchar,
   "status" mission_status,
-  "start" timestamptz,
-  "stop" timestamptz,
-  "date" timestamptz
+  "start_time" timestamptz,
+  "stop_time" timestamptz,
+  "mission_date" timestamptz
 );
 
 CREATE TABLE "pc1_weed" (
@@ -133,9 +133,9 @@ ALTER TABLE "fields" ADD FOREIGN KEY ("farm_id") REFERENCES "farms" ("id") DEFER
 
 ALTER TABLE "missions" ADD FOREIGN KEY ("commander") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "missions" ADD FOREIGN KEY ("field") REFERENCES "fields" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "missions" ADD FOREIGN KEY ("field_id") REFERENCES "fields" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "missions" ADD FOREIGN KEY ("type") REFERENCES "mission_types" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "missions" ADD FOREIGN KEY ("mission_type") REFERENCES "mission_types" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "pc1_weed" ADD FOREIGN KEY ("inspection") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 

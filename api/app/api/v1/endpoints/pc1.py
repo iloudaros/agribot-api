@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg2.extras import RealDictCursor
 
 from app.core.db import get_db_conn
-from app.models.schemas import SprayingMission, SprayingMissionCreate, Weed, WeedCreate
+from app.models.schemas import SprayingMission, SprayingMissionCreate, Weed, WeedCreate, WeedUpdate
 from app.security import UserInDB, get_current_active_user
 
 router = APIRouter()
