@@ -1,11 +1,18 @@
+# This script demonstrates how to batch onboard farmers, their farms, and fields into the AgriBot Data Lake using the API.
+#  It performs the following steps:
+# 1. Authenticates as a service provider to get an access token.
+# 2. Batch uploads multiple users (farmers) to the database.
+# 3. Batch uploads farms associated with the newly created users.
+# 4. Batch uploads fields associated with the newly created farms.
+# It is intended to be used by the FIRMP platform to onboard farmers and their data.
 import requests
 import sys
 
 # Configuration
 BASE_URL = "http://127.0.0.1:8080/api/v1"
 AUTH_DATA = {
-    "username": "testuser",  # Replace with actual username from your dev env
-    "password": "supersecretpassword"  # Replace with actual password from your dev env
+    "username": "admin",  # Replace with actual username from your dev env
+    "password": "testpassword"  # Replace with actual password from your dev env
 }
 
 def main():

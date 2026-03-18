@@ -27,7 +27,7 @@ The system is built on **FastAPI** (API Layer), **PostgreSQL + PostGIS** (Relati
    * [🥬 PC3 (POLIBA): Robotic Fertilization Management for Leafy Vegetables in Open Field Conditions](#-pc3-poliba-robotic-fertilization-management-for-leafy-vegetables-in-open-field-conditions)
    * [🍅 PC4 (POLIBA): Robotic Technologies for Crop Monitoring and Management in Soilless Tomato Cultivation](#-pc4-poliba-robotic-technologies-for-crop-monitoring-and-management-in-soilless-tomato-cultivation)
    * [🍎🍐 PC5 (KUL): Robotic harvesting in orchards](#-pc5-kul-robotic-harvesting-in-orchards)
-   * [🍎 PC6 (KUL): Robotic pruning and thinning with XR in orchards](#-pc6-kul-robotic-pruning-and-thinning-with-xr-in-orchards)
+   * [🍎🍐 PC6 (KUL): Robotic pruning and thinning with XR in orchards](#-pc6-kul-robotic-pruning-and-thinning-with-xr-in-orchards)
 7. [Image Handling (MinIO)](#7-image-handling-minio)
    * [The Presigned URL Pattern](#the-presigned-url-pattern)
 
@@ -99,10 +99,12 @@ Before uploading mission data, the infrastructure must be defined.
 ### Users
 
 #### Connector Side
-The Connector will have a service account in our database. This account is used to authenticate API calls and push data to the database. The Connector does not manage user accounts for farmers; instead, it relies on the FIRMP platform to handle farmer accounts and push relevant data to our database, so that farmers can later authenticate on the Connector side.
+**Context:** The Connector will have a service account in our database. This account is used to authenticate API calls and push data to the database. The Connector does not manage user accounts for farmers; instead, it relies on the FIRMP platform to handle farmer accounts and push relevant data to our database, so that farmers can later authenticate on the Connector side.
 
 #### FIRMP Side
-**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions.So the FIRMP has to be able to push those farmers to our db, so they can later authenticate on the connector side.  At the same time, the FIRMP itself, has its own user in our db so it can get authenticated and push data to our db.
+**Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions. So the FIRMP has to be able to push those farmers to our db, so they can later authenticate on the connector side.  At the same time, the FIRMP itself, has its own user in our db so it can get authenticated and push data to our db.
+
+You can see the example of how to onboard farmers in the `docs/examples/FIRMP/onboard_farmers.py` script.
 
 ### Farms and Fields
 
@@ -222,7 +224,7 @@ We push the data to the FIRMP platform for visualization and analysis.
 ...
 
 ---
-### 🍎 PC6 (KUL): Robotic pruning and thinning with XR in orchards
+### 🍎🍐 PC6 (KUL): Robotic pruning and thinning with XR in orchards
 **Context:** Managing individual trees, harvesting fruit, and running AI detections on images.
 
 ...
