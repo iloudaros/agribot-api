@@ -1,3 +1,4 @@
 .DS_Store
 digest.txt
+*__pycache__
 .vscode/settings.json

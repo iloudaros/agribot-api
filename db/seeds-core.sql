@@ -37,6 +37,16 @@ VALUES
     ),
     (
         3,
+        'perfect_farmer',
+        '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
+        'Farmer',
+        'Perfect',
+        'farmer',
+        true,
+        NOW()
+    ),
+    (
+        4,
         'servicebot',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
         'Field',
@@ -63,9 +73,9 @@ VALUES
 
 INSERT INTO farm_ownerships (farm_id, user_id, ownership_percentage)
 VALUES
-    (1, 2, 100.00),
+    (1, 2, 60.00),
     (2, 2, 100.00),
-    (1, 3, 0.00);
+    (1, 3, 40.00);
 
 INSERT INTO fields (id, farm_id, name, crop_name, boundary)
 VALUES
@@ -107,3 +117,9 @@ VALUES
     ('pc1_inspection_and_spraying', 'PC1', 'AUA', 'Inspection and spraying mission for weed identification'),
     ('pc2_spraying', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
     ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements');
+
+
+-- Sync the sequences so the next auto-generated IDs start AFTER our seeded data
+SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
+SELECT setval(pg_get_serial_sequence('farms', 'id'), (SELECT MAX(id) FROM farms));
+SELECT setval(pg_get_serial_sequence('fields', 'id'), (SELECT MAX(id) FROM fields));
