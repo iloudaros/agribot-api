@@ -35,8 +35,7 @@ VALUES
         true,
         NOW()
     ),
-    3
-    (,
+    (
         3,
         'perfect_farmer',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
@@ -118,3 +117,9 @@ VALUES
     ('pc1_inspection_and_spraying', 'PC1', 'AUA', 'Inspection and spraying mission for weed identification'),
     ('pc2_spraying', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
     ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements');
+
+
+-- Sync the sequences so the next auto-generated IDs start AFTER our seeded data
+SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
+SELECT setval(pg_get_serial_sequence('farms', 'id'), (SELECT MAX(id) FROM farms));
+SELECT setval(pg_get_serial_sequence('fields', 'id'), (SELECT MAX(id) FROM fields));
