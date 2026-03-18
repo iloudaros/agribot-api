@@ -1,2 +1,3 @@
 .DS_Store
 digest.txt
+*__pycache__

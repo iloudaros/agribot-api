@@ -63,7 +63,7 @@ TableGroup "Missions" [color: #1E69FD]{
 Table mission_types{
   id varchar [pk]
   pilot_case varchar
-  partner varhcar
+  partner varchar
   description varchar
 }
 
@@ -80,9 +80,9 @@ Table missions {
   field int [ref: > fields.id]
   type varchar [ref: > mission_types.id]
   status mission_status
-  start timestampz
-  stop timestampz
-  date timestampz
+  start timestamptz
+  stop timestamptz
+  date timestamptz
 }
 
 TableGroup "Pilot Case 1 (AUA): Weed Identification and spot spraying for wheat/corn" [color: #2D862B]{
@@ -90,14 +90,18 @@ pc1_weed
 }
 
 Table pc1_weed {
-  id int [pk]
-  inspection int [ref: > missions.id]
+  id varchar
+  inspection varchar [ref: > missions.id]
   name varchar
   image varchar
   confidence float
   weed_loc geometry // Postgis Point
   is_sprayed bool
-  spray_time timestmapz
+  spray_time timestamptz
+
+    indexes {
+    (id, inspection) [pk]
+  }
 }
 
 
@@ -135,8 +139,8 @@ Table pc3_inspections
 {
   id varchar [pk, ref: > missions.id]
   location geometry // Postgis point
-  biomass float(1.2)
-  ndvi float(1.2)
+  biomass float
+  ndvi float
 
 }
 

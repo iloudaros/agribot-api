@@ -1,6 +1,9 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-03-17T20:35:41.781Z
+-- Generated at: 2026-03-18T00:14:05.271Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -51,7 +54,7 @@ CREATE TABLE "fields" (
 CREATE TABLE "mission_types" (
   "id" varchar PRIMARY KEY,
   "pilot_case" varchar,
-  "partner" varhcar,
+  "partner" varchar,
   "description" varchar
 );
 
@@ -61,20 +64,21 @@ CREATE TABLE "missions" (
   "field" int,
   "type" varchar,
   "status" mission_status,
-  "start" timestampz,
-  "stop" timestampz,
-  "date" timestampz
+  "start" timestamptz,
+  "stop" timestamptz,
+  "date" timestamptz
 );
 
 CREATE TABLE "pc1_weed" (
-  "id" int PRIMARY KEY,
-  "inspection" int,
+  "id" varchar,
+  "inspection" varchar,
   "name" varchar,
   "image" varchar,
   "confidence" float,
   "weed_loc" geometry,
   "is_sprayed" bool,
-  "spray_time" timestmapz
+  "spray_time" timestamptz,
+  PRIMARY KEY ("id", "inspection")
 );
 
 CREATE TABLE "pc2_spraying_metadata" (
@@ -97,8 +101,8 @@ CREATE TABLE "pc2_spraying_mission" (
 CREATE TABLE "pc3_inspections" (
   "id" varchar PRIMARY KEY,
   "location" geometry,
-  "biomass" float(1.2),
-  "ndvi" float(1.2)
+  "biomass" float,
+  "ndvi" float
 );
 
 CREATE TABLE "pc4_pending" (

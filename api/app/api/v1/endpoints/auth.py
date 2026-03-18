@@ -5,6 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
 
+from typing import Optional
+
 from app.core.db import get_db_conn
 from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,

@@ -8,6 +8,22 @@ MissionStatus = Literal["ongoing", "complete", "canceled", "aborted"]
 SprayingMissionType = Literal["pc1_inspection", "pc1_spraying", "pc2_spraying"]
 
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    role: str = "farmer"  # defaults to farmer
+    is_active: bool = True
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    role: str
+    is_active: bool
+
 class FarmOwner(BaseModel):
     user_id: int
     ownership_percentage: float

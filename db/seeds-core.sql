@@ -35,8 +35,19 @@ VALUES
         true,
         NOW()
     ),
-    (
+    3
+    (,
         3,
+        'perfect_farmer',
+        '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
+        'Farmer',
+        'Perfect',
+        'farmer',
+        true,
+        NOW()
+    ),
+    (
+        4,
         'servicebot',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
         'Field',
@@ -63,9 +74,9 @@ VALUES
 
 INSERT INTO farm_ownerships (farm_id, user_id, ownership_percentage)
 VALUES
-    (1, 2, 100.00),
+    (1, 2, 60.00),
     (2, 2, 100.00),
-    (1, 3, 0.00);
+    (1, 3, 40.00);
 
 INSERT INTO fields (id, farm_id, name, crop_name, boundary)
 VALUES
