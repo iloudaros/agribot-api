@@ -13,17 +13,20 @@ router = APIRouter()
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     if user.role == "admin":
         return
+    
+    # Simple, direct check against the new table structure (No JOIN needed)
     cur.execute(
         """
-        SELECT 1 FROM fields fld
-        JOIN farm_ownerships fo ON fo.farm_id = fld.farm_id
-        WHERE fld.id = %s AND fo.user_id = %s
+        SELECT 1 FROM field_ownerships
+        WHERE field_id = %s AND user_id = %s
         """,
         (field_id, user.id),
     )
     if cur.fetchone() is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this field")
-
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You do not have access to this field"
+        )
 
 # ==========================================
 # PC1 Mission State Endpoints
@@ -42,7 +45,7 @@ def list_pc1_missions(
             JOIN fields fld ON fld.id = m.field_id
             WHERE m.mission_type IN ('pc1_inspection', 'pc1_spraying')
               AND (%s = 'admin' OR EXISTS (
-                    SELECT 1 FROM farm_ownerships own
+                    SELECT 1 FROM field_ownerships own
                     WHERE own.farm_id = fld.farm_id AND own.user_id = %s
                   ))
             ORDER BY m.start_time DESC NULLS LAST, m.id
@@ -142,6 +145,49 @@ def update_pc1_mission_state(
 # ==========================================
 # PC1 Weed Endpoints
 # ==========================================
+@router.post("/weeds/batch", response_model=List[Weed], status_code=status.HTTP_201_CREATED)
+def create_pc1_weeds_batch(
+    weeds_in: List[WeedCreate],
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user),
+):
+    if not weeds_in:
+        return []
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        mission_ids = list(set(w.inspection_id for w in weeds_in))
+        cur.execute("SELECT id, field_id, mission_type FROM missions WHERE id = ANY(%s)", (mission_ids,))
+        missions = {m["id"]: m for m in cur.fetchall()}
+
+        for m_id in mission_ids:
+            if m_id not in missions:
+                raise HTTPException(status_code=404, detail=f"Mission {m_id} not found")
+            _ensure_field_access(cur, missions[m_id]["field_id"], user)
+
+        query = """
+            INSERT INTO pc1_weed (id, inspection_id, name, image, confidence, weed_loc, is_sprayed, spray_time)
+            VALUES %s
+            RETURNING id, inspection_id, name, image, confidence, 
+                      ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, 
+                      is_sprayed, spray_time
+        """
+        # Note: We now pass the string 'id' as the first parameter
+        template = "(%s, %s, %s, %s, %s, CASE WHEN %s::float IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) END, %s, %s)"
+        
+        data_tuples = [
+            (
+                w.id, w.inspection_id, w.name, w.image, w.confidence, 
+                w.longitude, w.longitude, w.latitude, 
+                w.is_sprayed, w.spray_time
+            )
+            for w in weeds_in
+        ]
+
+        inserted_weeds = execute_values(cur, query, data_tuples, template=template, fetch=True)
+        conn.commit()
+
+    return inserted_weeds
+
 
 @router.post("/weeds", response_model=Weed, status_code=status.HTTP_201_CREATED)
 def create_pc1_weed(
@@ -186,48 +232,42 @@ def create_pc1_weed(
 
     return new_weed
 
-@router.post("/weeds/batch", response_model=List[Weed], status_code=status.HTTP_201_CREATED)
-def create_pc1_weeds_batch(
-    weeds_in: List[WeedCreate],
+
+@router.patch("/weeds/batch", response_model=List[Weed])
+def update_pc1_weeds_batch(
+    updates: List[WeedBatchUpdateItem],
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
-    if not weeds_in:
+    if not updates:
         return []
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        mission_ids = list(set(w.inspection_id for w in weeds_in))
-        cur.execute("SELECT id, field_id, mission_type FROM missions WHERE id = ANY(%s)", (mission_ids,))
-        missions = {m["id"]: m for m in cur.fetchall()}
+        mission_ids = list(set(u.inspection_id for u in updates))
+        cur.execute("SELECT id, field_id FROM missions WHERE id = ANY(%s)", (mission_ids,))
+        fields = cur.fetchall()
+            
+        for f in fields:
+            _ensure_field_access(cur, f["field_id"], user)
 
-        for m_id in mission_ids:
-            if m_id not in missions:
-                raise HTTPException(status_code=404, detail=f"Mission {m_id} not found")
-            _ensure_field_access(cur, missions[m_id]["field_id"], user)
-
+        # Match on BOTH id and inspection_id due to the composite primary key
         query = """
-            INSERT INTO pc1_weed (id, inspection_id, name, image, confidence, weed_loc, is_sprayed, spray_time)
-            VALUES %s
-            RETURNING id, inspection_id, name, image, confidence, 
-                      ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, 
-                      is_sprayed, spray_time
+            UPDATE pc1_weed AS w
+            SET is_sprayed = data.is_sprayed::boolean,
+                spray_time = data.spray_time::timestamptz
+            FROM (VALUES %s) AS data(id, inspection_id, is_sprayed, spray_time)
+            WHERE w.id = data.id::int AND w.inspection_id = data.inspection_id::int
+            RETURNING w.id, w.inspection_id, w.name, w.image, w.confidence, 
+                      ST_Y(w.weed_loc) AS latitude, ST_X(w.weed_loc) AS longitude, 
+                      w.is_sprayed, w.spray_time
         """
-        # Note: We now pass the string 'id' as the first parameter
-        template = "(%s, %s, %s, %s, %s, CASE WHEN %s::float IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) END, %s, %s)"
+        data_tuples = [(u.id, u.inspection_id, u.is_sprayed, u.spray_time) for u in updates]
         
-        data_tuples = [
-            (
-                w.id, w.inspection_id, w.name, w.image, w.confidence, 
-                w.longitude, w.longitude, w.latitude, 
-                w.is_sprayed, w.spray_time
-            )
-            for w in weeds_in
-        ]
-
-        inserted_weeds = execute_values(cur, query, data_tuples, template=template, fetch=True)
+        updated_weeds = execute_values(cur, query, data_tuples, fetch=True)
         conn.commit()
 
-    return inserted_weeds
+    return updated_weeds
+
 
 @router.patch("/weeds/{weed_id}", response_model=Weed)
 def update_pc1_weed(
@@ -275,40 +315,7 @@ def update_pc1_weed(
 
     return updated_weed
 
-@router.patch("/weeds/batch", response_model=List[Weed])
-def update_pc1_weeds_batch(
-    updates: List[WeedBatchUpdateItem],
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user),
-):
-    if not updates:
-        return []
 
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        mission_ids = list(set(u.inspection_id for u in updates))
-        cur.execute("SELECT id, field_id FROM missions WHERE id = ANY(%s)", (mission_ids,))
-        fields = cur.fetchall()
-            
-        for f in fields:
-            _ensure_field_access(cur, f["field_id"], user)
-
-        # Match on BOTH id and inspection_id due to the composite primary key
-        query = """
-            UPDATE pc1_weed AS w
-            SET is_sprayed = data.is_sprayed::boolean,
-                spray_time = data.spray_time::timestamptz
-            FROM (VALUES %s) AS data(id, inspection_id, is_sprayed, spray_time)
-            WHERE w.id = data.id::varchar AND w.inspection_id = data.inspection_id::varchar
-            RETURNING w.id, w.inspection_id, w.name, w.image, w.confidence, 
-                      ST_Y(w.weed_loc) AS latitude, ST_X(w.weed_loc) AS longitude, 
-                      w.is_sprayed, w.spray_time
-        """
-        data_tuples = [(u.id, u.inspection_id, u.is_sprayed, u.spray_time) for u in updates]
-        
-        updated_weeds = execute_values(cur, query, data_tuples, fetch=True)
-        conn.commit()
-
-    return updated_weeds
 
 @router.get("/weeds/{inspection_id}", response_model=List[Weed])
 def list_pc1_weeds(

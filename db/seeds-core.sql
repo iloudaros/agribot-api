@@ -5,11 +5,11 @@ TRUNCATE TABLE
     pc2_spraying_mission,
     pc2_spraying_metadata,
     pc1_weed,
+    pc1_missions,      -- Added new PC1 status table
     missions,
     mission_types,
-    fields,
-    farm_ownerships,
-    farms,
+    field_ownerships,  -- Changed from farm_ownerships
+    fields,            -- Farms table was removed
     users
 RESTART IDENTITY CASCADE;
 
@@ -56,33 +56,13 @@ VALUES
         NOW()
     );
 
-INSERT INTO farms (id, name, location_center, created_at)
+-- Merged Farm logic into Fields. Fields now hold the location_center
+INSERT INTO fields (id, name, location_center, crop_name, boundary, created_at)
 VALUES
     (
         1,
-        'Demo Spraying Farm',
+        'Field 26 - Demo Spraying',
         ST_SetSRID(ST_MakePoint(23.373150, 38.291430), 4326),
-        NOW()
-    ),
-    (
-        2,
-        'Demo Monitoring Farm',
-        ST_SetSRID(ST_MakePoint(16.798420, 41.139860), 4326),
-        NOW()
-    );
-
-INSERT INTO farm_ownerships (farm_id, user_id, ownership_percentage)
-VALUES
-    (1, 2, 60.00),
-    (2, 2, 100.00),
-    (1, 3, 40.00);
-
-INSERT INTO fields (id, farm_id, name, crop_name, boundary)
-VALUES
-    (
-        1,
-        1,
-        'Field 26',
         'Potato',
         ST_GeomFromText(
             'POLYGON((
@@ -93,12 +73,13 @@ VALUES
                 7.136902 46.959334
             ))',
             4326
-        )
+        ),
+        NOW()
     ),
     (
         2,
-        2,
-        'Leafy Block A',
+        'Leafy Block A - Demo Monitoring',
+        ST_SetSRID(ST_MakePoint(16.798420, 41.139860), 4326),
         'Leafy vegetables',
         ST_GeomFromText(
             'POLYGON((
@@ -109,8 +90,16 @@ VALUES
                 16.798350 41.139820
             ))',
             4326
-        )
+        ),
+        NOW()
     );
+
+-- Replaced farm_ownerships with field_ownerships
+INSERT INTO field_ownerships (field_id, user_id, ownership_percentage)
+VALUES
+    (1, 2, 60.00),
+    (2, 2, 100.00),
+    (1, 3, 40.00);
 
 INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES
@@ -120,6 +109,6 @@ VALUES
 
 
 -- Sync the sequences so the next auto-generated IDs start AFTER our seeded data
+-- Note: 'farms' is removed from here since the table no longer exists
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
-SELECT setval(pg_get_serial_sequence('farms', 'id'), (SELECT MAX(id) FROM farms));
 SELECT setval(pg_get_serial_sequence('fields', 'id'), (SELECT MAX(id) FROM fields));

@@ -5,8 +5,9 @@ import os
 import json
 import requests
 import logging
-import credentials
 logger = logging.getLogger(__name__)
+
+import app.api.forward.credentials as credentials
 
 # In production, these should be loaded from your config/environment variables
 API_KEY  = credentials.API_KEY

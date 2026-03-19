@@ -14,17 +14,20 @@ router = APIRouter()
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     if user.role == "admin":
         return
+    
+    # Simple, direct check against the new table structure (No JOIN needed)
     cur.execute(
         """
-        SELECT 1 FROM fields fld
-        JOIN farm_ownerships fo ON fo.farm_id = fld.farm_id
-        WHERE fld.id = %s AND fo.user_id = %s
+        SELECT 1 FROM field_ownerships
+        WHERE field_id = %s AND user_id = %s
         """,
         (field_id, user.id),
     )
     if cur.fetchone() is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this field")
-
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You do not have access to this field"
+        )
 
 # @router.post("/missions", response_model=SprayingMission, status_code=status.HTTP_201_CREATED)
 # def create_pc2_mission(

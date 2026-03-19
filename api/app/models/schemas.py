@@ -66,7 +66,8 @@ class Field(BaseModel):
     boundary_wkt: Optional[str] = None
 
 
-# Mission Schemas
+# Mission Schemas 
+
 class MissionType(BaseModel):
     id: str
     pilot_case: Optional[str] = None
@@ -87,17 +88,16 @@ class MissionBase(BaseModel):
     mission_date: Optional[datetime] = None
 
 
-class MissionCreate(MissionBase):
-    id: Optional[str] = None
-
-
 class Mission(MissionBase):
-    id: str
+    id: int
     commander_id: int
     end_time: Optional[datetime] = None
 
+class MissionCreate(MissionBase):
+    id: Optional[int] = None  
+
 class PC1MissionState(BaseModel):
-    mission_id: str
+    mission_id: int
     status: PC1MissionStatus
 
 
@@ -143,8 +143,8 @@ class WeedUpdate(BaseModel):
 
 
 class WeedCreate(BaseModel):
-    id: str  
-    inspection_id: str
+    id: int  
+    inspection_id: int
     name: Optional[str] = None
     image: Optional[str] = None
     confidence: Optional[float] = None
@@ -155,15 +155,15 @@ class WeedCreate(BaseModel):
 
 
 class WeedBatchUpdateItem(BaseModel):
-    id: str  
-    inspection_id: str 
+    id: int  
+    inspection_id: int 
     is_sprayed: bool
     spray_time: Optional[datetime] = None
 
 
 class Weed(BaseModel):
-    id: str 
-    inspection_id: str
+    id: int 
+    inspection_id: int
     name: Optional[str] = None
     image: Optional[str] = None
     confidence: Optional[float] = None

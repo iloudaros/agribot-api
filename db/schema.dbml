@@ -65,13 +65,13 @@ enum mission_status{
 }
 
 Table missions {
-  id int [pk]
-  commander int [ref: > users.id]
+  id int [pk, increment]
+  commander_id int [ref: > users.id]
   field_id int [ref: > fields.id]
   mission_type varchar [ref: > mission_types.id]
   status mission_status
   start_time timestamptz
-  stop_time timestamptz
+  end_time timestamptz
   mission_date timestamptz
 }
 
@@ -82,7 +82,7 @@ pc1_missions
 
 Table pc1_weed {
   id int
-  inspection int [ref: > missions.id]
+  inspection_id int [ref: > missions.id]
   name varchar
   image varchar
   confidence float
@@ -91,7 +91,7 @@ Table pc1_weed {
   spray_time timestamptz
 
     indexes {
-    (id, inspection) [pk]
+    (id, inspection_id) [pk]
   }
 }
 
@@ -103,8 +103,8 @@ enum pc1_mission_status{
 }
 
 Table pc1_missions {
-  mission_id int [ref:> missions.id]
-  status mission_status
+  mission_id int [pk, ref:> missions.id]
+  status pc1_mission_status
 }
 
 

@@ -4,19 +4,18 @@
 
 import requests
 import datetime
-import uuid
 import time
 import sys
 
 # Configuration
 BASE_URL = "http://localhost:8080/api/v1"
-AUTH_DATA = {"username": "testuser", "password": "supersecretpassword"} # Fixed password
+AUTH_DATA = {"username": "testuser", "password": "supersecretpassword"}
 
 def get_iso_now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 def main():
-    print("--- AgriBot PC1 Workflow (Single Item Uploads) ---")
+    print("--- AgriBot PC1 Workflow (Single Item Uploads with INT IDs) ---")
 
     # 1. Authenticate
     print("\n1. Authenticating...")
@@ -32,16 +31,18 @@ def main():
 
     # 2. Create the Generic Mission
     print("\n2. Creating Generic Mission...")
-    mission_id = str(uuid.uuid4())
     
+    # We NO LONGER send an ID. Postgres generates the INT automatically.
     mission_payload = {
-        "id": mission_id,
         "field_id": 1,
         "mission_type": "pc1_inspection",
         "start_time": get_iso_now()
     }
-    requests.post(f"{BASE_URL}/missions", json=mission_payload, headers=headers).raise_for_status()
-    print(f"✓ Mission created with ID: {mission_id}")
+    mission_resp = requests.post(f"{BASE_URL}/missions", json=mission_payload, headers=headers)
+    mission_resp.raise_for_status()
+    
+    mission_id = mission_resp.json()['id']
+    print(f"✓ Mission created with DB ID: {mission_id}")
 
     # Set initial PC1 state
     requests.put(f"{BASE_URL}/pc1/missions/{mission_id}/state", json={
@@ -52,10 +53,10 @@ def main():
     # 3. PHASE 1: Upload Detected Weeds (NOT SPRAYED YET)
     print("\n3. Phase 1: Uploading Detected Weeds individually...")
     
-    # UGV generates IDs now!
+    # UGV generates simple integer IDs now
     weeds_payloads = [
         {
-            "id": str(uuid.uuid4()), # <--- NEW: Explicit ID
+            "id": 1, # <--- Simple INT
             "inspection_id": mission_id,
             "name": "weeds_01.png",
             "image": "minio://agribot-mission-images/pc1/weeds_01.png",
@@ -65,7 +66,7 @@ def main():
             "is_sprayed": False 
         },
         {
-            "id": str(uuid.uuid4()), # <--- NEW: Explicit ID
+            "id": 2, # <--- Simple INT
             "inspection_id": mission_id,
             "name": "weeds_02.png",
             "image": "minio://agribot-mission-images/pc1/weeds_02.png",
@@ -82,7 +83,6 @@ def main():
         weed_resp = requests.post(f"{BASE_URL}/pc1/weeds", json=weed, headers=headers)
         weed_resp.raise_for_status()
         
-        # Grab the string ID returned by the API
         weed_id = weed_resp.json()['id']
         uploaded_weed_ids.append(weed_id)
         print(f"  ✓ Weed uploaded! DB ID: {weed_id}")
@@ -106,8 +106,7 @@ def main():
             "is_sprayed": True,
             "spray_time": spray_time
         }
-        # Note: If your backend PATCH endpoint requires inspection_id due to the composite key, 
-        # add "inspection_id": mission_id to the payload above.
+        
         update_resp = requests.patch(f"{BASE_URL}/pc1/weeds/{w_id}", json=update_payload, headers=headers)
         update_resp.raise_for_status()
         print(f"  ✓ Weed {w_id} updated! is_sprayed=True")
@@ -131,8 +130,7 @@ def main():
     weeds_data = get_weeds_resp.json()
     for w in weeds_data:
          status = "✅ Sprayed" if w['is_sprayed'] else "❌ Not Sprayed"
-         # Slicing the UUID just to make the console output cleaner
-         print(f"  - ID: {w['id'][:8]}... | Conf: {w['confidence']*100}% | Status: {status} at {w['spray_time']}")
+         print(f"  - ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status} at {w['spray_time']}")
 
 if __name__ == "__main__":
     try:
