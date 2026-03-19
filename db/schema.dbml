@@ -1,10 +1,6 @@
-// AgriBot Data Lake - Coherent Schema
-// Version 5.0
-
 TableGroup "Core Infrastructure" [color: #1E69FD] {
   users
-  farms
-  farm_ownerships
+  field_ownerships
   fields
 }
 
@@ -26,21 +22,14 @@ Table users {
   Note: 'Application users used for JWT authentication.'
 }
 
-Table farms {
-  id int [pk, increment]
-  name varchar [not null]
-  location_center geometry // Postgis Point
-  created_at timestamptz [not null, default: `now()`]
-  Note: 'Farm registry. Ownership is defined in farm_ownerships.'
-}
 
-Table farm_ownerships {
-  farm_id int [not null, ref: > farms.id]
+Table field_ownerships {
+  field_id int [not null, ref: > fields.id]
   user_id int [not null, ref: > users.id]
   ownership_percentage decimal(5,2) [not null]
 
   indexes {
-    (farm_id, user_id) [pk]
+    (field_id, user_id) [pk]
   }
 
   Note: 'Many-to-many ownership relation between users and farms.'
@@ -48,10 +37,11 @@ Table farm_ownerships {
 
 Table fields {
   id int [pk, increment]
-  farm_id int [not null, ref: > farms.id]
   name varchar [not null]
+  location_center geometry // Postgis Point
   crop_name varchar
   boundary geometry //Postgis Polygon
+  created_at timestamptz [not null, default: `now()`]
   Note: 'Field / plot registry. boundary is a PostGIS Polygon in SRID 4326.'
 }
 
@@ -75,7 +65,7 @@ enum mission_status{
 }
 
 Table missions {
-  id varchar [pk]
+  id int [pk]
   commander int [ref: > users.id]
   field_id int [ref: > fields.id]
   mission_type varchar [ref: > mission_types.id]
@@ -87,11 +77,12 @@ Table missions {
 
 TableGroup "Pilot Case 1 (AUA): Weed Identification and spot spraying for wheat/corn" [color: #2D862B]{
 pc1_weed
+pc1_missions
 }
 
 Table pc1_weed {
-  id varchar
-  inspection varchar [ref: > missions.id]
+  id int
+  inspection int [ref: > missions.id]
   name varchar
   image varchar
   confidence float
@@ -104,6 +95,18 @@ Table pc1_weed {
   }
 }
 
+enum pc1_mission_status{
+  ongoing
+  inspection_complete
+  spraying_complete
+  aborted
+}
+
+Table pc1_missions {
+  mission_id int [ref:> missions.id]
+  status mission_status
+}
+
 
 
 TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and volunteer potatoes" [color: #D95B16]{
@@ -114,7 +117,7 @@ TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and v
 
 Table pc2_spraying_metadata
 {
-  id varchar [pk, ref: > missions.id]
+  id int [pk, ref: > missions.id]
   max_lat float
   min_lat float
   max_long float
@@ -127,7 +130,7 @@ Table pc2_spraying_metadata
 
 Table pc2_spraying_mission 
 {
-  id varchar [pk, ref: > missions.id]
+  id int [pk, ref: > missions.id]
   properties jsonb
 }
 
@@ -137,7 +140,7 @@ pc3_inspections
 
 Table pc3_inspections
 {
-  id varchar [pk, ref: > missions.id]
+  id int [pk, ref: > missions.id]
   location geometry // Postgis point
   biomass float
   ndvi float
