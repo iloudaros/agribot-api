@@ -1,13 +1,13 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from psycopg2.extras import RealDictCursor, execute_values
 
 from app.core.db import get_db_conn
 from app.models.schemas import SprayingMission, Weed, WeedCreate, WeedUpdate, WeedBatchUpdateItem, PC1MissionState
 from app.security import UserInDB, get_current_active_user
-
+from app.api.forward.pc1 import push_pc1_inspection_data, push_pc1_sprayed_weeds_data
 router = APIRouter()
 
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
@@ -55,18 +55,19 @@ def list_pc1_missions(
 def update_pc1_mission_state(
     mission_id: str,
     state: PC1MissionState,
+    background_tasks: BackgroundTasks, # <-- Inject BackgroundTasks here
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user)
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id FROM missions WHERE id = %s", (mission_id,))
+        cur.execute("SELECT field_id, start_time FROM missions WHERE id = %s", (mission_id,))
         mission = cur.fetchone()
         if not mission:
             raise HTTPException(status_code=404, detail="Mission not found")
         
         _ensure_field_access(cur, mission["field_id"], user)
 
-        # Upsert the PC1 specific status
+        # 1. Upsert the PC1 specific status
         cur.execute(
             """
             INSERT INTO pc1_missions (mission_id, status)
@@ -79,7 +80,60 @@ def update_pc1_mission_state(
         )
         updated_state = cur.fetchone()
         conn.commit()
-    
+
+        # 2. TRIGGER AGROAPPS WEBHOOKS BASED ON STATUS
+        if state.status == "inspection_complete":
+            # Fetch all weeds for this inspection
+            cur.execute("""
+                SELECT id, name, image, confidence, ST_Y(weed_loc) AS lat, ST_X(weed_loc) AS lon 
+                FROM pc1_weed 
+                WHERE inspection_id = %s
+            """, (mission_id,))
+            weeds_data = cur.fetchall()
+
+            # Build AgroApps Payload
+            payload = {
+                "inspection_id": mission_id,
+                "parcel_id": mission["field_id"],
+                "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else "",
+                "weeds": [
+                    {
+                        "id": w["id"], # Note: Your DB is str (UUID), AgroApps example showed int. We send str.
+                        "name": w["name"],
+                        "image": w["image"],
+                        # Assuming confidence is 0.0 - 1.0, AgroApps expects 0-100 format
+                        "confidence": int((w["confidence"] or 0) * 100),
+                        "weed_loc": {
+                            "lat": w["lat"],
+                            "lon": w["lon"]
+                        } if w["lat"] is not None else None
+                    } for w in weeds_data
+                ]
+            }
+            # Add to background queue
+            background_tasks.add_task(push_pc1_inspection_data, payload)
+
+        elif state.status == "spraying_complete":
+            # Fetch only sprayed weeds
+            cur.execute("""
+                SELECT id, spray_time 
+                FROM pc1_weed 
+                WHERE inspection_id = %s AND is_sprayed = true
+            """, (mission_id,))
+            sprayed_data = cur.fetchall()
+
+            payload = {
+                "inspection_id": mission_id,
+                "sprayed_weeds": [
+                    {
+                        "id": w["id"],
+                        "timestamp": w["spray_time"].strftime("%Y%m%d%H%M%S") if w["spray_time"] else ""
+                    } for w in sprayed_data
+                ]
+            }
+            # Add to background queue
+            background_tasks.add_task(push_pc1_sprayed_weeds_data, payload)
+
     return updated_state
 
 
