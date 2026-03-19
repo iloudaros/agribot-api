@@ -56,7 +56,7 @@ def main():
     # UGV generates simple integer IDs now
     weeds_payloads = [
         {
-            "id": 1, # <--- Simple INT
+            "id": 1, 
             "inspection_id": mission_id,
             "name": "weeds_01.png",
             "image": "minio://agribot-mission-images/pc1/weeds_01.png",
@@ -66,7 +66,7 @@ def main():
             "is_sprayed": False 
         },
         {
-            "id": 2, # <--- Simple INT
+            "id": 2, 
             "inspection_id": mission_id,
             "name": "weeds_02.png",
             "image": "minio://agribot-mission-images/pc1/weeds_02.png",
