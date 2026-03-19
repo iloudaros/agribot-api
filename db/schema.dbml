@@ -141,20 +141,20 @@ pc3_inspections
 
 Table pc3_inspections
 {
-  id int [pk, ref: > missions.id]
-  location geometry // Postgis point
+  id int [pk, increment]
+  mission_id int [ref: > missions.id]
   timestamp_unix float
+  location geometry // Postgis point
   biomass float
-  altitudeM float
-  avgDimXcm float
-  avgDimYcm float
-  avgDimZcm float
-  avgVolumeCm3 float
-  avgFolAreaCm2 float
-  avgNdvi float
-  avgBiomass float
-  avgFertilization float
-
+  altitude_m float
+  avg_dim_x_cm float
+  avg_dim_y_cm float
+  avg_dim_z_cm float
+  avg_volume_cm3 float
+  avg_fol_area_cm2 float
+  avg_ndvi float
+  avg_biomass float
+  avg_fertilization float
 }
 
 

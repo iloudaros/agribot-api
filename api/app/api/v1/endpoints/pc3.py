@@ -94,7 +94,7 @@ def get_pc3_inspections(
         cur.execute(
             """
             SELECT 
-                id, mission_id, 
+                id, mission_id, timestamp_unix,
                 ST_Y(location) AS latitude, ST_X(location) AS longitude,
                 biomass, altitude_m, avg_dim_x_cm, avg_dim_y_cm, avg_dim_z_cm, 
                 avg_volume_cm3, avg_fol_area_cm2, avg_ndvi, avg_biomass, avg_fertilization
@@ -105,3 +105,4 @@ def get_pc3_inspections(
             (mission_id,)
         )
         return cur.fetchall()
+
