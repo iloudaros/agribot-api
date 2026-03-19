@@ -1,10 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from psycopg2.extras import RealDictCursor
 from app.core.db import get_db_conn
 from app.models.schemas import Mission, MissionCreate, MissionUpdate
 from app.security import UserInDB, get_current_active_user
-
+from app.api.forward.pc3 import push_vegetation_indices
 router = APIRouter()
 
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
@@ -60,7 +60,13 @@ def list_missions(conn=Depends(get_db_conn), user: UserInDB = Depends(get_curren
         return cur.fetchall()
 
 @router.patch("/{mission_id}", response_model=Mission)
-def update_mission(mission_id: int, update_data: MissionUpdate, conn=Depends(get_db_conn), user: UserInDB = Depends(get_current_active_user)):
+def update_mission(
+    mission_id: int, 
+    update_data: MissionUpdate, 
+    background_tasks: BackgroundTasks, 
+    conn=Depends(get_db_conn), 
+    user: UserInDB = Depends(get_current_active_user)
+):
     update_fields = {k: v for k, v in update_data.dict(exclude_unset=True).items() if v is not None}
     if not update_fields: raise HTTPException(status_code=400, detail="No fields provided")
     
@@ -80,5 +86,46 @@ def update_mission(mission_id: int, update_data: MissionUpdate, conn=Depends(get
             """, tuple(values)
         )
         updated_mission = cur.fetchone()
+        
+        # ---------------------------------------------------------
+        # AGROAPPS PC3 WEBHOOK LOGIC
+        # ---------------------------------------------------------
+        if updated_mission["status"] == "complete" and updated_mission["mission_type"] == "pc3_inspection":
+            # Fetch all the telemetry measurements for this mission
+            cur.execute("""
+                SELECT 
+                    timestamp_unix, ST_Y(location) AS lat, ST_X(location) AS lon,
+                    altitude_m, avg_dim_x_cm, avg_dim_y_cm, avg_dim_z_cm, 
+                    avg_volume_cm3, avg_fol_area_cm2, avg_ndvi, avg_biomass, avg_fertilization
+                FROM pc3_inspections
+                WHERE mission_id = %s
+                ORDER BY id
+            """, (mission_id,))
+            measurements = cur.fetchall()
+
+            if measurements:
+                payload = {
+                    "parcel_id": updated_mission["field_id"],
+                    "date": updated_mission["start_time"].strftime("%Y-%m-%d") if updated_mission["start_time"] else "",
+                    "measurements": [
+                        {
+                            "timestamp": m["timestamp_unix"],
+                            "latitude": m["lat"],
+                            "longitude": m["lon"],
+                            "altitudeM": m["altitude_m"],
+                            "avgDimXcm": m["avg_dim_x_cm"],
+                            "avgDimYcm": m["avg_dim_y_cm"],
+                            "avgDimZcm": m["avg_dim_z_cm"],
+                            "avgVolumeCm3": m["avg_volume_cm3"],
+                            "avgFolAreaCm2": m["avg_fol_area_cm2"],
+                            "avgNdvi": m["avg_ndvi"],
+                            "avgBiomass": m["avg_biomass"],
+                            "avgFertilization": m["avg_fertilization"]
+                        } for m in measurements
+                    ]
+                }
+                # Dispatch the API call without slowing down the HTTP response
+                background_tasks.add_task(push_vegetation_indices, payload)
+
         conn.commit()
     return updated_mission

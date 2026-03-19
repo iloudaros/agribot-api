@@ -179,29 +179,21 @@ class Weed(BaseModel):
 
 
 
-class MonitoringInspectionCreate(BaseModel):
-    id: Optional[str] = None
-    field_id: int
-    status: MissionStatus = "complete"
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    mission_date: Optional[datetime] = None
+class PC3InspectionItem(BaseModel):
+    timestamp_unix: float
     latitude: float
     longitude: float
     biomass: Optional[float] = None
-    ndvi: Optional[float] = None
+    altitude_m: Optional[float] = None
+    avg_dim_x_cm: Optional[float] = None
+    avg_dim_y_cm: Optional[float] = None
+    avg_dim_z_cm: Optional[float] = None
+    avg_volume_cm3: Optional[float] = None
+    avg_fol_area_cm2: Optional[float] = None
+    avg_ndvi: Optional[float] = None
+    avg_biomass: Optional[float] = None
+    avg_fertilization: Optional[float] = None
 
-
-class MonitoringInspection(BaseModel):
-    id: str
-    commander_id: Optional[int] = None
-    field_id: Optional[int] = None
-    mission_type: str
-    status: str
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    mission_date: Optional[datetime] = None
-    latitude: float
-    longitude: float
-    biomass: Optional[float] = None
-    ndvi: Optional[float] = None
+class PC3InspectionBatch(BaseModel):
+    mission_id: int
+    data: List[PC3InspectionItem]

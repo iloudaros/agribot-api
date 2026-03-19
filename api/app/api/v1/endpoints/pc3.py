@@ -1,21 +1,16 @@
-import uuid
 from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 
 from app.core.db import get_db_conn
-from app.models.schemas import MonitoringInspection, MonitoringInspectionCreate
+from app.models.schemas import PC3InspectionItem, PC3InspectionBatch
 from app.security import UserInDB, get_current_active_user
 
 router = APIRouter()
 
-
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     if user.role == "admin":
         return
-    
-    # Simple, direct check against the new table structure (No JOIN needed)
     cur.execute(
         """
         SELECT 1 FROM field_ownerships
@@ -25,121 +20,88 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     )
     if cur.fetchone() is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="You do not have access to this field"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this field",
         )
 
 
-@router.post("/inspections", response_model=MonitoringInspection, status_code=status.HTTP_201_CREATED)
-@router.post("/observations", response_model=MonitoringInspection, status_code=status.HTTP_201_CREATED, deprecated=True)
-def create_inspection(
-    inspection: MonitoringInspectionCreate,
+@router.post("/inspections/batch", status_code=status.HTTP_201_CREATED)
+def create_pc3_inspections_batch(
+    batch: PC3InspectionBatch,
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
-    inspection_id = inspection.id or str(uuid.uuid4())
-    mission_date = inspection.mission_date or inspection.start_time
+    if not batch.data:
+        return {"message": "No data provided"}
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        _ensure_field_access(cur, inspection.field_id, user)
+        # 1. Verify Mission and Access
+        cur.execute("SELECT field_id, mission_type FROM missions WHERE id = %s", (batch.mission_id,))
+        mission = cur.fetchone()
+        
+        if not mission:
+            raise HTTPException(status_code=404, detail="Mission not found")
+        if mission["mission_type"] != "pc3_inspection":
+            raise HTTPException(status_code=400, detail="Data can only be attached to a pc3_inspection mission")
+            
+        _ensure_field_access(cur, mission["field_id"], user)
 
-        cur.execute(
-            """
-            INSERT INTO missions
-                (id, commander_id, field_id, mission_type, status, start_time, end_time, mission_date)
-            VALUES
-                (%s, %s, %s, 'pc3_inspection', %s, %s, %s, %s)
-            RETURNING
-                id,
-                commander_id,
-                field_id,
-                mission_type,
-                status,
-                start_time,
-                end_time,
-                mission_date
-            """,
+        # 2. Prepare Bulk Insert
+        query = """
+            INSERT INTO pc3_inspections (
+                mission_id, timestamp_unix, location, biomass, altitude_m, avg_dim_x_cm, 
+                avg_dim_y_cm, avg_dim_z_cm, avg_volume_cm3, avg_fol_area_cm2, 
+                avg_ndvi, avg_biomass, avg_fertilization
+            ) VALUES %s
+        """
+        
+        # ST_MakePoint takes (longitude, latitude)
+        template = "(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        
+        data_tuples = [
             (
-                inspection_id,
-                user.id,
-                inspection.field_id,
-                inspection.status,
-                inspection.start_time,
-                inspection.end_time,
-                mission_date,
-            ),
-        )
-        mission_row = cur.fetchone()
-
-        cur.execute(
-            """
-            INSERT INTO pc3_inspections (id, location, biomass, ndvi)
-            VALUES (
-                %s,
-                ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                %s,
-                %s
+                batch.mission_id,
+                item.timestamp_unix,
+                item.longitude, item.latitude, 
+                item.biomass, item.altitude_m, item.avg_dim_x_cm,
+                item.avg_dim_y_cm, item.avg_dim_z_cm, item.avg_volume_cm3,
+                item.avg_fol_area_cm2, item.avg_ndvi, item.avg_biomass, item.avg_fertilization
             )
-            RETURNING
-                ST_Y(location) AS latitude,
-                ST_X(location) AS longitude,
-                biomass,
-                ndvi
-            """,
-            (
-                inspection_id,
-                inspection.longitude,
-                inspection.latitude,
-                inspection.biomass,
-                inspection.ndvi,
-            ),
-        )
-        inspection_row = cur.fetchone()
+            for item in batch.data
+        ]
 
+        # 3. Execute
+        execute_values(cur, query, data_tuples, template=template)
         conn.commit()
 
-    mission_row.update(inspection_row)
-    return mission_row
+    return {"message": f"Successfully inserted {len(batch.data)} inspection records."}
 
 
-@router.get("/inspections", response_model=List[MonitoringInspection])
-def list_inspections(
+@router.get("/inspections/{mission_id}")
+def get_pc3_inspections(
+    mission_id: int,
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT field_id FROM missions WHERE id = %s", (mission_id,))
+        mission = cur.fetchone()
+        if not mission:
+            raise HTTPException(status_code=404, detail="Mission not found")
+
+        _ensure_field_access(cur, mission["field_id"], user)
+
         cur.execute(
             """
-            SELECT
-                m.id,
-                m.commander_id,
-                m.field_id,
-                m.mission_type,
-                m.status,
-                m.start_time,
-                m.end_time,
-                m.mission_date,
-                ST_Y(pc3.location) AS latitude,
-                ST_X(pc3.location) AS longitude,
-                pc3.biomass,
-                pc3.ndvi
-            FROM missions m
-            JOIN pc3_inspections pc3
-              ON pc3.id = m.id
-            JOIN fields fld
-              ON fld.id = m.field_id
-            WHERE m.mission_type = 'pc3_inspection'
-              AND (
-                    %s = 'admin'
-                    OR EXISTS (
-                        SELECT 1
-                        FROM farm_ownerships own
-                        WHERE own.farm_id = fld.farm_id
-                          AND own.user_id = %s
-                    )
-                  )
-            ORDER BY m.start_time DESC NULLS LAST, m.id
+            SELECT 
+                id, mission_id, 
+                ST_Y(location) AS latitude, ST_X(location) AS longitude,
+                biomass, altitude_m, avg_dim_x_cm, avg_dim_y_cm, avg_dim_z_cm, 
+                avg_volume_cm3, avg_fol_area_cm2, avg_ndvi, avg_biomass, avg_fertilization
+            FROM pc3_inspections 
+            WHERE mission_id = %s
+            ORDER BY id
             """,
-            (user.role or "", user.id),
+            (mission_id,)
         )
         return cur.fetchall()

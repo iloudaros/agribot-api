@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-03-19T03:51:47.288Z
+-- Generated at: 2026-03-19T09:18:39.088Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -107,8 +107,17 @@ CREATE TABLE "pc2_spraying_mission" (
 CREATE TABLE "pc3_inspections" (
   "id" int PRIMARY KEY,
   "location" geometry,
+  "timestamp_unix" float,
   "biomass" float,
-  "ndvi" float
+  "altitudeM" float,
+  "avgDimXcm" float,
+  "avgDimYcm" float,
+  "avgDimZcm" float,
+  "avgVolumeCm3" float,
+  "avgFolAreaCm2" float,
+  "avgNdvi" float,
+  "avgBiomass" float,
+  "avgFertilization" float
 );
 
 CREATE TABLE "pc4_pending" (

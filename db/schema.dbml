@@ -138,12 +138,22 @@ TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy ve
 pc3_inspections
 }
 
+
 Table pc3_inspections
 {
   id int [pk, ref: > missions.id]
   location geometry // Postgis point
+  timestamp_unix float
   biomass float
-  ndvi float
+  altitudeM float
+  avgDimXcm float
+  avgDimYcm float
+  avgDimZcm float
+  avgVolumeCm3 float
+  avgFolAreaCm2 float
+  avgNdvi float
+  avgBiomass float
+  avgFertilization float
 
 }
 
