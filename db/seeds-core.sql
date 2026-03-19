@@ -60,7 +60,7 @@ VALUES
 INSERT INTO fields (id, name, location_center, crop_name, boundary, created_at)
 VALUES
     (
-        1,
+        44,
         'Field 26 - Demo Spraying',
         ST_SetSRID(ST_MakePoint(23.373150, 38.291430), 4326),
         'Potato',
@@ -77,7 +77,7 @@ VALUES
         NOW()
     ),
     (
-        2,
+        45,
         'Leafy Block A - Demo Monitoring',
         ST_SetSRID(ST_MakePoint(16.798420, 41.139860), 4326),
         'Leafy vegetables',
@@ -97,9 +97,9 @@ VALUES
 -- Replaced farm_ownerships with field_ownerships
 INSERT INTO field_ownerships (field_id, user_id, ownership_percentage)
 VALUES
-    (1, 2, 60.00),
-    (2, 2, 100.00),
-    (1, 3, 40.00);
+    (44, 2, 60.00),
+    (45, 2, 100.00),
+    (44, 3, 40.00);
 
 INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES

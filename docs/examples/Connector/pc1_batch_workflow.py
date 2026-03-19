@@ -36,7 +36,7 @@ def main():
     
     # We NO LONGER send an ID. Postgres generates the INT automatically.
     mission_resp = requests.post(f"{BASE_URL}/missions", json={
-        "field_id": 1,
+        "field_id": 44,
         "mission_type": "pc1_inspection_and_spraying",
         "start_time": get_iso_now()
     }, headers=headers)
