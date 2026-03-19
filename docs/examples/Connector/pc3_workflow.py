@@ -4,7 +4,7 @@ import sys
 
 # Configuration
 BASE_URL = "http://localhost:8080/api/v1"
-AUTH_DATA = {"username": "testuser", "password": "supersecretpassword"}
+AUTH_DATA = {"username": "testuser", "password": "testpassword"}
 
 # Note: In your AgroApps example, you used parcel_id 45. 
 # Make sure your seeds-core.sql has a field with id=45 owned by testuser!
