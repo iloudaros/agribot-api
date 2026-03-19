@@ -53,15 +53,17 @@ The platform follows a Data Lake architecture:
   <img src="./schema.svg" alt="Schema Diagram">
 </p>
 
-The database is organized into logical groups rather than strict pilot cases, allowing for better data reuse.
+The database is organized logically into core infrastructure and pilot-case-specific tables.
 
-*   **Core Infrastructure:** `users`, `farms`, `fields`, `robots`
-*   **Spraying (PC1/2):** `uc1_uc2_missions`, `uc1_uc2_telemetry`
-*   **Monitoring (PC3/4):** `uc3_uc4_observations`
-*   **Orchards (PC5/6):** `uc5_uc6_trees`, `uc5_uc6_harvest_data`, `uc5_uc6_detections`
+*   **Core Infrastructure:** `users`, `fields`, `field_ownerships`
+*   **Missions (Generic):** `missions`, `mission_types`
+*   **Pilot Case 1:** `pc1_weed`, `pc1_missions` (State Machine)
+*   **Pilot Case 2:** `pc2_spraying_mission`, `pc2_spraying_metadata`
+*   **Pilot Case 3:** `pc3_inspections`
+*   **Orchards (PC5/6):** `uc5_uc6_trees`, `uc5_uc6_images`, `uc5_uc6_detections`
 
 **Additional Information:**
-*   You can view the schema [here](https://dbdiagram.io/d/AgRibot-6849f4b1a463a450da2514f5) 
+*   You can view the schema [here](https://dbdiagram.io/d/Agribot-v2-0-69a80db1a3f0aa31e1c704db) 
 *   Details about the DB can be found [here](https://dbdocs.io/iloudaros/AgRibot)
 
 ---
@@ -106,10 +108,10 @@ Before uploading mission data, the infrastructure must be defined.
 
 You can see the example of how to onboard farmers in the `docs/examples/FIRMP/onboard_farmers.py` script.
 
-### Farms and Fields
+### Fields
 
 #### Connector Side
-...
+**Context:** Farmers login using their connector and they are able to download the field boundaries (as GeoJSON) to their local system. The Connector uses this information to geotag the telemetry data and to know where the robot is operating.
 
 #### FIRMP Side
 **Context:** The FIRMP platform is used by farmers. They create their accounts and manage their farms, fields, and missions. The Connector will reference these entities when uploading mission data.
@@ -120,50 +122,119 @@ You can see the example of how to onboard farmers in the `docs/examples/FIRMP/on
 **Context:** A mission represents a specific task performed by a robot, such as spraying, monitoring, or harvesting. Each mission is associated with a specific field, and in essence represents aspecific Pilot Case.
 
 #### Connector Side
-...
+All robotic operations share a universal base ⁠Mission. The workflow for any pilot case follows three steps:
+  1.  Start Base Mission: `⁠POST /api/v1/missions` (Generates and returns an auto-incrementing integer `⁠id`).
+  2.	Upload Specific Data: Use the specific PC endpoints (e.g., `⁠/pc1/weeds/batch`) and link them using the `⁠mission_id` integer.	
+  3.	End Base Mission: `⁠PATCH /api/v1/missions/{mission_id}` to set the `⁠end_time` and `⁠status` to `⁠complete`.
 
 #### FIRMP Side
-...
+**Context:** The FIRMP platform is used by farmers. They are able to see the results of the missions in the FIRMP dashboard, so they can make informed decisions about their farming operations. Our API pushes the data to the FIRMP platform for visualization and analysis.
 
 ## 6. Use Cases
 
 ### 🌽🌾 PC1 (AUA): Weed Identification and Spot Spraying for Wheat/Corn" 
-**Context:** Robots traversing a field to spray liquids on weeds.
+**Context:** A UGV traverses a field, inspects it for weeds, and later performs a spraying pass. State changes trigger background webhooks to AgroApps.
+
+> **Full Example:** See ⁠docs/examples/Connector/pc1_batch_workflow.py.
+
 
 #### Connector Side
-
-##### 1. Create Mission Summary
-Call this at the **start** or **end** of a mission to initialize the record.
-`POST /api/v1/spraying/missions`
+##### 1. Create the Base Mission
+```
+POST /api/v1/missions
+```
 
 ```json
 {
-  "robot_id": 1,
-  "field_id": 10,
-  "mission_type": "spraying",
-  "start_time": "2025-05-18T10:00:00Z",
-  "end_time": "2025-05-18T12:00:00Z",
-  "travelled_distance_m": 1500.5,
-  "covered_area_m2": 5000.0,
-  "sprayed_fluid_l": 45.2
+  "field_id": 44,
+  "mission_type": "pc1_inspection_and_spraying",
+  "start_time": "2026-03-19T10:00:00Z"
+}
+```
+Returns ⁠id (e.g., ⁠1).
+
+##### 2. Update PC1 State to Ongoing
+```
+PUT /api/v1/pc1/missions/1/state
+```
+
+```json
+{
+  "mission_id": 1,
+  "status": "ongoing"
 }
 ```
 
-##### 2. Upload Telemetry (Bulk)
-Upload high-frequency logs (GPS, speed, pressure) in batches.
-`POST /api/v1/spraying/telemetry`
+##### 3. Batch Upload Inspected Weeds
+Upload weeds detected by the UGV using local integer IDs.
+```
+POST /api/v1/pc1/weeds/batch
+```
 
 ```json
 [
   {
-    "mission_id": 55,
-    "timestamp": "2025-05-18T10:00:01Z",
-    "latitude": 46.9593,
-    "longitude": 7.1369,
-    "speed_mps": 1.2,
-    "spray_pressure_bar": 3.0
+    "id": 1,
+    "inspection_id": 1,
+    "name": "weeds_01.png",
+    "image": "minio://agribot-mission-images/pc1/weeds_01.png",
+    "confidence": 0.85,
+    "latitude": 38.2915,
+    "longitude": 23.3732,
+    "is_sprayed": false
   }
 ]
+```
+
+##### 4. Mark Inspection Complete (Triggers Webhook!)
+Setting this state automatically fires a background task to push the inspection data to the AgroApps API.
+```
+PUT /api/v1/pc1/missions/1/state
+```
+
+``` json
+{
+  "mission_id": 1,
+  "status": "inspection_complete"
+}
+```
+
+##### 5. Batch Update Weeds as Sprayed
+Later, when the UGV sprays the weeds, update their status. Because of composite primary keys, you must provide both ⁠id and ⁠inspection_id.
+
+```
+PATCH /api/v1/pc1/weeds/batch
+```
+
+```json
+[
+  {
+    "id": 1,
+    "inspection_id": 1,
+    "is_sprayed": true,
+    "spray_time": "2026-03-19T14:30:00Z"
+  }
+]
+```
+##### 6. Mark Spraying Complete & Close Mission
+Triggers the final AgroApps webhook, and closes out the generic base mission.
+
+```
+PUT /api/v1/pc1/missions/1/state
+```
+
+``` json
+
+{"mission_id": 1, "status": "spraying_complete"}
+
+```
+
+```
+PATCH /api/v1/missions/1
+```
+
+```json
+{"status": "complete", "end_time": "2026-03-19T15:00:00Z"}
 ```
 
 
