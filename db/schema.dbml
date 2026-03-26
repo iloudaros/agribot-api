@@ -38,9 +38,9 @@ Table field_ownerships {
 Table fields {
   id int [pk, increment]
   name varchar [not null]
-  location_center geometry // Postgis Point
+  location_center geometry [note:'Postgis Point']
   crop_name varchar
-  boundary geometry //Postgis Polygon
+  boundary geometry [note:'Postgis Polygon']
   created_at timestamptz [not null, default: `now()`]
   Note: 'Field / plot registry. boundary is a PostGIS Polygon in SRID 4326.'
 }
@@ -86,9 +86,12 @@ Table pc1_weed {
   name varchar
   image varchar
   confidence float
-  weed_loc geometry // Postgis Point
+  weed_loc geometry [note:'Postgis Point']
+  needs_verification bool
+  verfied bool
   is_sprayed bool
   spray_time timestamptz
+
 
     indexes {
     (id, inspection_id) [pk]
@@ -138,13 +141,12 @@ TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy ve
 pc3_inspections
 }
 
-
 Table pc3_inspections
 {
   id int [pk, increment]
-  mission_id int [ref: > missions.id]
+  mission_id int [not null, ref: > missions.id]
   timestamp_unix float
-  location geometry // Postgis point
+  location geometry [note:'Postgis Point']
   biomass float
   altitude_m float
   avg_dim_x_cm float
