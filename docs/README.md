@@ -181,6 +181,7 @@ POST /api/v1/pc1/weeds/batch
     "confidence": 0.85,
     "latitude": 38.2915,
     "longitude": 23.3732,
+    "needs_verification": true,
     "is_sprayed": false
   }
 ]
@@ -211,6 +212,7 @@ PATCH /api/v1/pc1/weeds/batch
   {
     "id": 1,
     "inspection_id": 1,
+    "verified": true,
     "is_sprayed": true,
     "spray_time": "2026-03-19T14:30:00Z"
   }

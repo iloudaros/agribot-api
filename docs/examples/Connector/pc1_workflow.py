@@ -1,7 +1,3 @@
-# This script demonstrates a complete workflow for the PC1 use case, 
-# where a UGV performs an inspection pass to detect weeds and then later performs a spraying pass to spray those weeds. 
-# The script interacts with the API to create missions, upload detected weeds (one by one), and update their status after spraying.
-
 import requests
 import datetime
 import time
@@ -9,15 +5,18 @@ import sys
 
 # Configuration
 BASE_URL = "http://localhost:8080/api/v1"
-AUTH_DATA = {"username": "testuser", "password": "supersecretpassword"}
+AUTH_DATA = {"username": "testuser", "password": "testpassword"}
 
 def get_iso_now():
+    """Helper to get current time in ISO 8601 format with UTC timezone."""
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 def main():
-    print("--- AgriBot PC1 Workflow (Single Item Uploads with INT IDs) ---")
+    print("--- AgriBot PC1 Workflow (Integer IDs & Batch Upload) ---")
 
-    # 1. Authenticate
+    # -----------------------------------------------------
+    # 1. AUTHENTICATE
+    # -----------------------------------------------------
     print("\n1. Authenticating...")
     auth_resp = requests.post(f"{BASE_URL}/auth/token", data=AUTH_DATA)
     if auth_resp.status_code != 200:
@@ -28,42 +27,49 @@ def main():
         "Authorization": f"Bearer {auth_resp.json()['access_token']}",
         "Content-Type": "application/json"
     }
+    print("✓ Token acquired.")
 
-    # 2. Create the Generic Mission
-    print("\n2. Creating Generic Mission...")
+    # -----------------------------------------------------
+    # 2. CREATE BASE MISSION
+    # -----------------------------------------------------
+    print("\n2. Creating Base Mission...")
     
     # We NO LONGER send an ID. Postgres generates the INT automatically.
-    mission_payload = {
-        "field_id": 1,
-        "mission_type": "pc1_inspection",
+    mission_resp = requests.post(f"{BASE_URL}/missions", json={
+        "field_id": 44,
+        "mission_type": "pc1_inspection_and_spraying",
         "start_time": get_iso_now()
-    }
-    mission_resp = requests.post(f"{BASE_URL}/missions", json=mission_payload, headers=headers)
+    }, headers=headers)
     mission_resp.raise_for_status()
     
-    mission_id = mission_resp.json()['id']
-    print(f"✓ Mission created with DB ID: {mission_id}")
+    # Extract the auto-generated INT ID from the database response
+    mission_id = mission_resp.json()["id"]
+    print(f"✓ Base Mission created with auto-generated DB ID: {mission_id}")
 
-    # Set initial PC1 state
+    # Set PC1 State to ONGOING
     requests.put(f"{BASE_URL}/pc1/missions/{mission_id}/state", json={
         "mission_id": mission_id,
         "status": "ongoing"
     }, headers=headers).raise_for_status()
+    print("✓ PC1 State set to: ongoing")
 
-    # 3. PHASE 1: Upload Detected Weeds (NOT SPRAYED YET)
-    print("\n3. Phase 1: Uploading Detected Weeds individually...")
+    # -----------------------------------------------------
+    # 3. PHASE 1: INSPECTION (BATCH UPLOAD WEEDS)
+    # -----------------------------------------------------
+    print("\n3. Phase 1: BATCH Uploading Detected Weeds (Inspection)...")
     
-    # UGV generates simple integer IDs now
-    weeds_payloads = [
+    # The UGV now uses simple integers for local weed identification
+    weeds_payload = [
         {
-            "id": 1, 
+            "id": 1,  
             "inspection_id": mission_id,
             "name": "weeds_01.png",
             "image": "minio://agribot-mission-images/pc1/weeds_01.png",
             "confidence": 0.85,
             "latitude": 38.2915,
             "longitude": 23.3732,
-            "is_sprayed": False 
+            "needs_verification": True,
+            "is_sprayed": False
         },
         {
             "id": 2, 
@@ -73,64 +79,68 @@ def main():
             "confidence": 0.92,
             "latitude": 38.2916,
             "longitude": 23.3733,
-            "is_sprayed": False 
+            "needs_verification": False,
+            "is_sprayed": False
         }
     ]
 
-    uploaded_weed_ids = []
-    # Send one request per weed
-    for weed in weeds_payloads:
-        weed_resp = requests.post(f"{BASE_URL}/pc1/weeds", json=weed, headers=headers)
-        weed_resp.raise_for_status()
-        
-        weed_id = weed_resp.json()['id']
-        uploaded_weed_ids.append(weed_id)
-        print(f"  ✓ Weed uploaded! DB ID: {weed_id}")
+    requests.post(f"{BASE_URL}/pc1/weeds/batch", json=weeds_payload, headers=headers).raise_for_status()
+    print(f"✓ Successfully uploaded {len(weeds_payload)} weeds.")
 
-    # Mark Inspection Complete
+    # Update PC1 State to INSPECTION_COMPLETE (This triggers the AgroApps Webhook!)
     requests.put(f"{BASE_URL}/pc1/missions/{mission_id}/state", json={
         "mission_id": mission_id,
         "status": "inspection_complete"
     }, headers=headers).raise_for_status()
+    print("✓ PC1 State set to: inspection_complete (AgroApps webhook triggered!)")
 
-    # SIMULATE TIME PASSING 
+    # Simulate time passing between inspection and spraying
     print("\n   ... Waiting for UGV to perform spraying pass ...")
     time.sleep(2)
 
-    # 4. PHASE 2: Update Weeds as Sprayed
-    print("\n4. Phase 2: Updating Weeds individually as Sprayed...")
+    # -----------------------------------------------------
+    # 4. PHASE 2: SPRAYING (BATCH UPDATE WEEDS)
+    # -----------------------------------------------------
+    print("\n4. Phase 2: BATCH Updating Weeds as Sprayed...")
     spray_time = get_iso_now()
     
-    for w_id in uploaded_weed_ids:
-        update_payload = {
-            "is_sprayed": True,
-            "spray_time": spray_time
-        }
-        
-        update_resp = requests.patch(f"{BASE_URL}/pc1/weeds/{w_id}", json=update_payload, headers=headers)
-        update_resp.raise_for_status()
-        print(f"  ✓ Weed {w_id} updated! is_sprayed=True")
+    # Send the update targeting the integers
+    update_payload = [
+        {"id": 1, "inspection_id": mission_id,"verified": True, "is_sprayed": True, "spray_time": spray_time},
+        {"id": 2, "inspection_id": mission_id, "is_sprayed": True, "spray_time": spray_time}
+    ]
+    
+    requests.patch(f"{BASE_URL}/pc1/weeds/batch", json=update_payload, headers=headers).raise_for_status()
+    print(f"✓ Successfully marked {len(update_payload)} weeds as sprayed.")
 
-    # Mark Spraying Complete & Close Mission
+    # Update PC1 State to SPRAYING_COMPLETE (This triggers the 2nd AgroApps Webhook!)
     requests.put(f"{BASE_URL}/pc1/missions/{mission_id}/state", json={
         "mission_id": mission_id,
         "status": "spraying_complete"
     }, headers=headers).raise_for_status()
-    
+    print("✓ PC1 State set to: spraying_complete (AgroApps webhook triggered!)")
+
+    # -----------------------------------------------------
+    # 5. CLOSE OUT BASE MISSION
+    # -----------------------------------------------------
+    print("\n5. Closing out Base Mission...")
     requests.patch(f"{BASE_URL}/missions/{mission_id}", json={
         "status": "complete",
         "end_time": get_iso_now()
     }, headers=headers).raise_for_status()
+    print("✓ Base Mission status set to complete with end_time.")
 
-    # 5. Fetch the Data to verify
-    print("\n5. Fetching Data from API to verify...")
+    # -----------------------------------------------------
+    # 6. VERIFY DATA
+    # -----------------------------------------------------
+    print("\n6. Fetching final data to verify...")
     get_weeds_resp = requests.get(f"{BASE_URL}/pc1/weeds/{mission_id}", headers=headers)
     get_weeds_resp.raise_for_status()
     
     weeds_data = get_weeds_resp.json()
     for w in weeds_data:
-         status = "✅ Sprayed" if w['is_sprayed'] else "❌ Not Sprayed"
-         print(f"  - ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status} at {w['spray_time']}")
+         status_str = "✅ Sprayed" if w['is_sprayed'] else "❌ Not Sprayed"
+         print(f"  - Weed ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status_str} at {w['spray_time']}")
 
 if __name__ == "__main__":
     try:

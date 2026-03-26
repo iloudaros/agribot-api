@@ -145,6 +145,8 @@ def update_pc1_mission_state(
 # ==========================================
 # PC1 Weed Endpoints
 # ==========================================
+
+# Create a batch of new weeds from an inspection mission.
 @router.post("/weeds/batch", response_model=List[Weed], status_code=status.HTTP_201_CREATED)
 def create_pc1_weeds_batch(
     weeds_in: List[WeedCreate],
@@ -165,19 +167,20 @@ def create_pc1_weeds_batch(
             _ensure_field_access(cur, missions[m_id]["field_id"], user)
 
         query = """
-            INSERT INTO pc1_weed (id, inspection_id, name, image, confidence, weed_loc, is_sprayed, spray_time)
+            INSERT INTO pc1_weed (id, inspection_id, name, image, confidence, weed_loc, needs_verification, verified, is_sprayed, spray_time)
             VALUES %s
             RETURNING id, inspection_id, name, image, confidence, 
                       ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, 
                       is_sprayed, spray_time
         """
-        # Note: We now pass the string 'id' as the first parameter
-        template = "(%s, %s, %s, %s, %s, CASE WHEN %s::float IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) END, %s, %s)"
+
+        template = "(%s, %s, %s, %s, %s, CASE WHEN %s::float IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) END, %s, %s, %s, %s)"
         
         data_tuples = [
             (
                 w.id, w.inspection_id, w.name, w.image, w.confidence, 
                 w.longitude, w.longitude, w.latitude, 
+                w.needs_verification, w.verified,
                 w.is_sprayed, w.spray_time
             )
             for w in weeds_in
@@ -188,7 +191,7 @@ def create_pc1_weeds_batch(
 
     return inserted_weeds
 
-
+# Create a single weed (legacy support, not recommended if you can batch)
 @router.post("/weeds", response_model=Weed, status_code=status.HTTP_201_CREATED)
 def create_pc1_weed(
     weed: WeedCreate,
@@ -213,17 +216,16 @@ def create_pc1_weed(
 
         _ensure_field_access(cur, inspection["field_id"], user)
 
-        # Insert including the new 'id' column. 
-        # Note: ST_MakePoint requires (longitude, latitude) order.
         cur.execute(
             """
             INSERT INTO pc1_weed (id, inspection_id, name, image, confidence, weed_loc, is_sprayed, spray_time)
             VALUES (%s, %s, %s, %s, %s, CASE WHEN %s::float IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) END, %s, %s)
-            RETURNING id, inspection_id, name, image, confidence, ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, is_sprayed, spray_time
+            RETURNING id, inspection_id, name, image, confidence, ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, needs_verification, verified, is_sprayed, spray_time
             """,
             (
                 weed.id, weed.inspection_id, weed.name, weed.image, weed.confidence, 
-                weed.longitude, weed.longitude, weed.latitude,  # Passed for NULL check and Point creation
+                weed.longitude, weed.longitude, weed.latitude,  
+                weed.needs_verification, weed.verified,
                 weed.is_sprayed, weed.spray_time
             ),
         )
@@ -232,7 +234,7 @@ def create_pc1_weed(
 
     return new_weed
 
-
+# Update the sprayed status of a list of weeds in batch.
 @router.patch("/weeds/batch", response_model=List[Weed])
 def update_pc1_weeds_batch(
     updates: List[WeedBatchUpdateItem],
@@ -253,22 +255,23 @@ def update_pc1_weeds_batch(
         # Match on BOTH id and inspection_id due to the composite primary key
         query = """
             UPDATE pc1_weed AS w
-            SET is_sprayed = data.is_sprayed::boolean,
+            SET verified = data.verified::boolean,
+                is_sprayed = data.is_sprayed::boolean,
                 spray_time = data.spray_time::timestamptz
-            FROM (VALUES %s) AS data(id, inspection_id, is_sprayed, spray_time)
+            FROM (VALUES %s) AS data(id, inspection_id, verified, is_sprayed, spray_time)
             WHERE w.id = data.id::int AND w.inspection_id = data.inspection_id::int
             RETURNING w.id, w.inspection_id, w.name, w.image, w.confidence, 
                       ST_Y(w.weed_loc) AS latitude, ST_X(w.weed_loc) AS longitude, 
                       w.is_sprayed, w.spray_time
         """
-        data_tuples = [(u.id, u.inspection_id, u.is_sprayed, u.spray_time) for u in updates]
+        data_tuples = [(u.id, u.inspection_id, u.verified, u.is_sprayed, u.spray_time) for u in updates]
         
         updated_weeds = execute_values(cur, query, data_tuples, fetch=True)
         conn.commit()
 
     return updated_weeds
 
-
+# Update a single weed's sprayed status (legacy support, not recommended if you can batch)
 @router.patch("/weeds/{weed_id}", response_model=Weed)
 def update_pc1_weed(
     weed_id: str, 
@@ -296,14 +299,15 @@ def update_pc1_weed(
         cur.execute(
             """
             UPDATE pc1_weed
-            SET is_sprayed = %s, spray_time = %s
+            SET verified = %s, is_sprayed = %s, spray_time = %s
             WHERE id = %s AND inspection_id = %s
             RETURNING 
                 id, inspection_id, name, image, confidence, 
                 ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, 
-                is_sprayed, spray_time
+                verified, is_sprayed, spray_time
             """,
             (
+                weed_update.verified,
                 weed_update.is_sprayed, 
                 weed_update.spray_time, 
                 weed_id, 
@@ -316,7 +320,7 @@ def update_pc1_weed(
     return updated_weed
 
 
-
+# List all weeds for a given inspection mission.
 @router.get("/weeds/{inspection_id}", response_model=List[Weed])
 def list_pc1_weeds(
     inspection_id: str,
@@ -333,7 +337,7 @@ def list_pc1_weeds(
 
         cur.execute(
             """
-            SELECT id, inspection_id, name, image, confidence, ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, is_sprayed, spray_time
+            SELECT id, inspection_id, name, image, confidence, ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude, needs_verification, verified, is_sprayed, spray_time
             FROM pc1_weed WHERE inspection_id = %s ORDER BY id
             """,
             (inspection_id,),

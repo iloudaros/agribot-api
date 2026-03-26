@@ -8,7 +8,9 @@ MissionStatus = Literal["ongoing", "complete", "canceled", "aborted"]
 SprayingMissionType = Literal["pc1_inspection", "pc1_spraying", "pc2_spraying"]
 PC1MissionStatus = Literal["ongoing", "inspection_complete", "spraying_complete", "aborted"]
 
-# Core Infrastructure Schemas
+###############################
+# Core Infrastructure Schemas #
+###############################
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -66,8 +68,9 @@ class Field(BaseModel):
     boundary_wkt: Optional[str] = None
 
 
-# Mission Schemas 
-
+###################
+# Mission Schemas #
+###################
 class MissionType(BaseModel):
     id: str
     pilot_case: Optional[str] = None
@@ -96,51 +99,54 @@ class Mission(MissionBase):
 class MissionCreate(MissionBase):
     id: Optional[int] = None  
 
+
+
+# class PC2SprayingMetadata(BaseModel):
+#     max_lat: Optional[float] = None
+#     min_lat: Optional[float] = None
+#     max_long: Optional[float] = None
+#     min_long: Optional[float] = None
+#     area_analyzed: Optional[float] = None
+#     average_density: Optional[float] = None
+#     crop_weed_correlation: Optional[float] = None
+#     weed_liquid_correlation: Optional[float] = None
+
+# class SprayingMissionCreate(BaseModel):
+#     id: Optional[str] = None
+#     field_id: int
+#     mission_type: SprayingMissionType
+#     status: MissionStatus = "complete"
+#     start_time: datetime
+#     end_time: Optional[datetime] = None
+#     mission_date: Optional[datetime] = None
+#     pc2_properties: Optional[Dict[str, Any]] = None
+#     pc2_metadata: Optional[PC2SprayingMetadata] = None
+
+
+# class SprayingMission(BaseModel):
+#     id: str
+#     commander_id: Optional[int] = None
+#     field_id: Optional[int] = None
+#     mission_type: str
+#     status: str
+#     start_time: Optional[datetime] = None
+#     end_time: Optional[datetime] = None
+#     mission_date: Optional[datetime] = None
+#     pc2_properties: Optional[Dict[str, Any]] = None
+#     pc2_metadata: Optional[PC2SprayingMetadata] = None
+
+
+###############
+# PC1 Schemas #
+###############
 class PC1MissionState(BaseModel):
     mission_id: int
     status: PC1MissionStatus
 
-
-class PC2SprayingMetadata(BaseModel):
-    max_lat: Optional[float] = None
-    min_lat: Optional[float] = None
-    max_long: Optional[float] = None
-    min_long: Optional[float] = None
-    area_analyzed: Optional[float] = None
-    average_density: Optional[float] = None
-    crop_weed_correlation: Optional[float] = None
-    weed_liquid_correlation: Optional[float] = None
-
-class SprayingMissionCreate(BaseModel):
-    id: Optional[str] = None
-    field_id: int
-    mission_type: SprayingMissionType
-    status: MissionStatus = "complete"
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    mission_date: Optional[datetime] = None
-    pc2_properties: Optional[Dict[str, Any]] = None
-    pc2_metadata: Optional[PC2SprayingMetadata] = None
-
-
-class SprayingMission(BaseModel):
-    id: str
-    commander_id: Optional[int] = None
-    field_id: Optional[int] = None
-    mission_type: str
-    status: str
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    mission_date: Optional[datetime] = None
-    pc2_properties: Optional[Dict[str, Any]] = None
-    pc2_metadata: Optional[PC2SprayingMetadata] = None
-
-
-# PC1 Schemas
 class WeedUpdate(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
-
+    verified: Optional[bool] = None
 
 class WeedCreate(BaseModel):
     id: int  
@@ -150,16 +156,17 @@ class WeedCreate(BaseModel):
     confidence: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    needs_verification: bool = False
+    verified: Optional[bool] = None
     is_sprayed: bool = False
     spray_time: Optional[datetime] = None
-
 
 class WeedBatchUpdateItem(BaseModel):
     id: int  
     inspection_id: int 
     is_sprayed: bool
     spray_time: Optional[datetime] = None
-
+    verified: Optional[bool] = None
 
 class Weed(BaseModel):
     id: int 
@@ -169,6 +176,8 @@ class Weed(BaseModel):
     confidence: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    needs_verification: bool = False
+    verified: Optional[bool] = None
     is_sprayed: bool
     spray_time: Optional[datetime] = None
 
@@ -176,8 +185,9 @@ class Weed(BaseModel):
 
 
 
-
-
+###############
+# PC3 Schemas #
+###############
 
 class PC3InspectionItem(BaseModel):
     timestamp_unix: float
