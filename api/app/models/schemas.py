@@ -94,6 +94,10 @@ class MissionBase(BaseModel):
 class Mission(MissionBase):
     id: int
     commander_id: int
+    field_id: int
+    mission_type: str
+    status: MissionStatus
+    start_time: datetime
     end_time: Optional[datetime] = None
 
 class MissionCreate(MissionBase):

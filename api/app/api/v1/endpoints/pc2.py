@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg2.extras import RealDictCursor
 
 from app.core.db import get_db_conn
-from app.models.schemas import SprayingMission, SprayingMissionCreate
+from app.models.schemas import Mission
 from app.security import UserInDB, get_current_active_user
 
 router = APIRouter()
@@ -87,34 +87,33 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
 #     return new_mission
 
 
-@router.get("/missions", response_model=List[SprayingMission])
+@router.get("/missions", response_model=List[Mission])
 def list_pc2_missions(
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute(
-            """
-            SELECT m.*, psm.properties AS pc2_properties,
-                CASE WHEN pmd.id IS NULL THEN NULL
-                ELSE json_build_object(
-                    'max_lat', pmd.max_lat, 'min_lat', pmd.min_lat, 'max_long', pmd.max_long, 'min_long', pmd.min_long,
-                    'area_analyzed', pmd.area_analyzed, 'average_density', pmd.average_density,
-                    'crop_weed_correlation', pmd.crop_weed_correlation, 'weed_liquid_correlation', pmd.weed_liquid_correlation
-                ) END AS pc2_metadata
-            FROM missions m
-            JOIN fields fld ON fld.id = m.field_id
-            LEFT JOIN pc2_spraying_mission psm ON psm.id = m.id
-            LEFT JOIN pc2_spraying_metadata pmd ON pmd.id = m.id
-            WHERE m.mission_type = 'pc2_spraying'
-              AND (%s = 'admin' OR EXISTS (
-                    SELECT 1 FROM farm_ownerships own WHERE own.farm_id = fld.farm_id AND own.user_id = %s
-                  ))
-            ORDER BY m.start_time DESC NULLS LAST, m.id
-            """,
-            (user.role or "", user.id),
-        )
-        return cur.fetchall()
+        if user.role == "admin":
+            cur.execute(
+                """
+                SELECT id, commander_id, field_id, mission_type, status, start_time, end_time
+                FROM missions
+                WHERE mission_type = 'pc2_spraying'
+                ORDER BY start_time DESC
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT m.id, m.commander_id, m.field_id, m.mission_type, m.status, m.start_time, m.end_time
+                FROM missions m
+                JOIN field_ownerships fo ON m.field_id = fo.field_id
+                WHERE m.mission_type = 'pc2_spraying' AND fo.user_id = %s
+                ORDER BY m.start_time DESC
+                """,
+                (user.id,)
+            )
+        missions = cur.fetchall()
 
 
 @router.post("/telemetry", include_in_schema=False)

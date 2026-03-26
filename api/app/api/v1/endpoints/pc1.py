@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from psycopg2.extras import RealDictCursor, execute_values
 
 from app.core.db import get_db_conn
-from app.models.schemas import SprayingMission, Weed, WeedCreate, WeedUpdate, WeedBatchUpdateItem, PC1MissionState
+from app.models.schemas import Mission, Weed, WeedCreate, WeedUpdate, WeedBatchUpdateItem, PC1MissionState
 from app.security import UserInDB, get_current_active_user
 from app.api.forward.pc1 import push_pc1_inspection_data, push_pc1_sprayed_weeds_data
 router = APIRouter()
@@ -32,26 +32,22 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
 # PC1 Mission State Endpoints
 # ==========================================
 
-@router.get("/missions", response_model=List[SprayingMission])
+@router.get("/missions", response_model=List[Mission])
 def list_pc1_missions(
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute(
-            """
-            SELECT m.*, NULL as pc2_properties, NULL as pc2_metadata
-            FROM missions m
-            JOIN fields fld ON fld.id = m.field_id
-            WHERE m.mission_type IN ('pc1_inspection', 'pc1_spraying')
-              AND (%s = 'admin' OR EXISTS (
-                    SELECT 1 FROM field_ownerships own
-                    WHERE own.farm_id = fld.farm_id AND own.user_id = %s
-                  ))
-            ORDER BY m.start_time DESC NULLS LAST, m.id
-            """,
-            (user.role or "", user.id),
-        )
+        if user.role == "admin":
+            cur.execute("SELECT * FROM missions WHERE mission_type LIKE 'pc1_%' ORDER BY start_time DESC")
+        else:
+            cur.execute("""
+                SELECT m.* 
+                FROM missions m
+                JOIN field_ownerships fo ON fo.field_id = m.field_id
+                WHERE m.mission_type LIKE 'pc1_%' AND fo.user_id = %s
+                ORDER BY m.start_time DESC
+            """, (user.id,))
         return cur.fetchall()
 
 @router.put("/missions/{mission_id}/state", response_model=PC1MissionState)

@@ -107,7 +107,7 @@ def main():
     # Send the update targeting the integers
     update_payload = [
         {"id": 1, "inspection_id": mission_id,"verified": True, "is_sprayed": True, "spray_time": spray_time},
-        {"id": 2, "inspection_id": mission_id, "is_sprayed": True, "spray_time": spray_time}
+        {"id": 2, "inspection_id": mission_id, "is_sprayed": True, "spray_time": spray_time} # The 'verified' field is optional and can be omitted if not applicable.
     ]
     
     requests.patch(f"{BASE_URL}/pc1/weeds/batch", json=update_payload, headers=headers).raise_for_status()

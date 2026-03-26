@@ -88,7 +88,7 @@ Table pc1_weed {
   confidence float
   weed_loc geometry [note:'Postgis Point']
   needs_verification bool
-  verfied bool
+  verified bool
   is_sprayed bool
   spray_time timestamptz
 
