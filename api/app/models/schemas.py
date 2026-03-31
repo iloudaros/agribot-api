@@ -185,7 +185,9 @@ class Weed(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
 
-
+class PC1ImageUploadRequest(BaseModel):
+    filename: str
+    inspection_id: int
 
 
 

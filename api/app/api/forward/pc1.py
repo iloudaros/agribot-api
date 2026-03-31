@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 import app.api.forward.credentials as credentials
 
-# In production, these should be loaded from your config/environment variables
+# In production, these should be loaded from your credentials.py variables
 API_KEY  = credentials.API_KEY
 SECRET   = credentials.SECRET
 BASE_URL = credentials.BASE_URL
