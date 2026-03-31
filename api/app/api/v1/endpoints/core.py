@@ -94,39 +94,34 @@ def create_field(
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
+    shape_json = field.shape.model_dump_json() if field.shape is not None else None
+
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            INSERT INTO fields (name, crop_name, location_center, boundary)
+            INSERT INTO fields (name, crop_name, boundary)
             VALUES (
                 %s,
                 %s,
                 CASE
-                    WHEN %s IS NULL OR %s IS NULL THEN NULL
-                    ELSE ST_SetSRID(ST_MakePoint(%s, %s), 4326)
-                END,
-                CASE
                     WHEN %s IS NULL THEN NULL
-                    ELSE ST_GeomFromText(%s, 4326)
+                    ELSE ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)
                 END
             )
             RETURNING
                 id,
                 name,
                 crop_name,
-                ST_Y(location_center) AS center_lat,
-                ST_X(location_center) AS center_lon,
-                ST_AsText(boundary) AS boundary_wkt
+                CASE
+                    WHEN boundary IS NULL THEN NULL
+                    ELSE ST_AsGeoJSON(boundary)::json
+                END AS shape
             """,
             (
                 field.name,
                 field.crop_name,
-                field.center_lon,
-                field.center_lat,
-                field.center_lon,
-                field.center_lat,
-                field.boundary_wkt,
-                field.boundary_wkt,
+                shape_json,
+                shape_json,
             ),
         )
         new_field = cur.fetchone()
@@ -150,6 +145,8 @@ def create_field(
     return new_field
 
 
+
+
 @router.post("/fields/batch", response_model=List[Field], status_code=status.HTTP_201_CREATED)
 def create_fields_batch(
     fields_in: List[FieldBatchCreate],
@@ -169,27 +166,24 @@ def create_fields_batch(
         (
             f.name,
             f.crop_name,
-            f.center_lon,
-            f.center_lat,
-            f.center_lon,
-            f.center_lat,
-            f.boundary_wkt,
-            f.boundary_wkt,
+            f.shape.model_dump_json() if f.shape is not None else None,
+            f.shape.model_dump_json() if f.shape is not None else None,
         )
         for f in fields_in
     ]
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         query = """
-            INSERT INTO fields (name, crop_name, location_center, boundary)
+            INSERT INTO fields (name, crop_name, boundary)
             VALUES %s
             RETURNING
                 id,
                 name,
                 crop_name,
-                ST_Y(location_center) AS center_lat,
-                ST_X(location_center) AS center_lon,
-                ST_AsText(boundary) AS boundary_wkt
+                CASE
+                    WHEN boundary IS NULL THEN NULL
+                    ELSE ST_AsGeoJSON(boundary)::json
+                END AS shape
         """
 
         template = """
@@ -197,12 +191,8 @@ def create_fields_batch(
                 %s,
                 %s,
                 CASE
-                    WHEN %s::float IS NULL OR %s::float IS NULL THEN NULL
-                    ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326)
-                END,
-                CASE
                     WHEN %s::text IS NULL THEN NULL
-                    ELSE ST_GeomFromText(%s::text, 4326)
+                    ELSE ST_SetSRID(ST_GeomFromGeoJSON(%s::text), 4326)
                 END
             )
         """
@@ -218,6 +208,8 @@ def create_fields_batch(
         field["owners"] = []
 
     return inserted_fields
+
+
 
 
 @router.post("/field-ownerships/batch", status_code=status.HTTP_201_CREATED)
@@ -270,9 +262,10 @@ def list_fields(
                 f.id,
                 f.name,
                 f.crop_name,
-                ST_Y(f.location_center) AS center_lat,
-                ST_X(f.location_center) AS center_lon,
-                ST_AsText(f.boundary) AS boundary_wkt,
+                CASE
+                    WHEN f.boundary IS NULL THEN NULL
+                    ELSE ST_AsGeoJSON(f.boundary)::json
+                END AS shape,
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -299,6 +292,8 @@ def list_fields(
             (user.role or "", user.id),
         )
         return cur.fetchall()
+
+
 
 
 @router.get("/mission-types", response_model=List[MissionType])

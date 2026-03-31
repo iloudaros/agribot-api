@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field as PydanticField
 
@@ -34,29 +34,28 @@ class FieldOwner(BaseModel):
     ownership_percentage: float
 
 
+class GeoJSONPolygon(BaseModel):
+    type: Literal["Polygon"]
+    coordinates: List[List[List[float]]]
+
+
 class FieldCreate(BaseModel):
     name: str
     crop_name: Optional[str] = None
-    center_lat: Optional[float] = None
-    center_lon: Optional[float] = None
-    boundary_wkt: Optional[str] = None
+    shape: Optional[GeoJSONPolygon] = None
 
 
 class FieldBatchCreate(BaseModel):
     name: str
     crop_name: Optional[str] = None
-    center_lat: Optional[float] = None
-    center_lon: Optional[float] = None
-    boundary_wkt: Optional[str] = None
+    shape: Optional[GeoJSONPolygon] = None
 
 
 class Field(BaseModel):
     id: int
     name: str
     crop_name: Optional[str] = None
-    center_lat: Optional[float] = None
-    center_lon: Optional[float] = None
-    boundary_wkt: Optional[str] = None
+    shape: Optional[GeoJSONPolygon] = None
     owners: List[FieldOwner] = PydanticField(default_factory=list)
 
 

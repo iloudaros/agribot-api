@@ -75,28 +75,57 @@ def main():
     # ---------------------------------------------------------
     print("\n3. Uploading fields...")
     fields_payload = [
-        {
-            "name": "North Block - Grapes",
-            "crop_name": "Grapes",
-            "center_lat": 44.42325,
-            "center_lon": 11.95425,
-            "boundary_wkt": "POLYGON((11.9540 44.4230, 11.9545 44.4230, 11.9545 44.4235, 11.9540 44.4235, 11.9540 44.4230))"
-        },
-        {
-            "name": "Field 12A - Potatoes",
-            "crop_name": "Potato",
-            "center_lat": 52.3414,
-            "center_lon": 4.8824,
-            "boundary_wkt": "POLYGON((4.8820 52.3410, 4.8828 52.3410, 4.8828 52.3418, 4.8820 52.3418, 4.8820 52.3410))"
-        },
-        {
-            "name": "South Olive Sector",
-            "crop_name": "Olives",
-            "center_lat": 38.29165,
-            "center_lon": 23.37325,
-            "boundary_wkt": "POLYGON((23.3730 38.2915, 23.3735 38.2915, 23.3735 38.2918, 23.3730 38.2918, 23.3730 38.2915))"
+    {
+        "name": "North Block - Grapes",
+        "crop_name": "Grapes",
+        "shape": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [11.9540, 44.4230],
+                    [11.9545, 44.4230],
+                    [11.9545, 44.4235],
+                    [11.9540, 44.4235],
+                    [11.9540, 44.4230]
+                ]
+            ]
         }
+    },
+    {
+        "name": "Field 12A - Potatoes",
+        "crop_name": "Potato",
+        "shape": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [4.8820, 52.3410],
+                    [4.8828, 52.3410],
+                    [4.8828, 52.3418],
+                    [4.8820, 52.3418],
+                    [4.8820, 52.3410]
+                ]
+            ]
+        }
+    },
+    {
+        "name": "South Olive Sector",
+        "crop_name": "Olives",
+        "shape": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [23.3730, 38.2915],
+                    [23.3735, 38.2915],
+                    [23.3735, 38.2918],
+                    [23.3730, 38.2918],
+                    [23.3730, 38.2915]
+                ]
+            ]
+        }
+    }
     ]
+
+
 
     fields_resp = requests.post(
         f"{BASE_URL}/core/fields/batch",
