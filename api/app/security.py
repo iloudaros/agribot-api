@@ -31,12 +31,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # -------------------------------------------------------------------
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
+    email: Optional[str] = None
 
 
 class UserInDB(BaseModel):
     id: int
-    username: str
+    email: str
     password_hash: str
     role: Optional[str] = None
     is_active: bool
@@ -87,12 +87,12 @@ def get_current_user(
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
+        email = payload.get("sub")
 
-        if not username:
+        if not email:
             raise credentials_exception
 
-        token_data = TokenData(username=username)
+        token_data = TokenData(email=email)
 
     except JWTError:
         raise credentials_exception
@@ -100,11 +100,11 @@ def get_current_user(
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT id, username, password_hash, role, is_active
+            SELECT id, email, password_hash, role, is_active
             FROM users
-            WHERE username = %s
+            WHERE email = %s
             """,
-            (token_data.username,),
+            (token_data.email,),
         )
         user = cur.fetchone()
 

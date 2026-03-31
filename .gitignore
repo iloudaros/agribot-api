@@ -3,4 +3,4 @@ digest.txt
 *__pycache__
 .vscode/settings.json
 api/app/api/forward/examples/*
-api/app/api/forward/credentials.py
+./api/app/api/forward/credentials.py

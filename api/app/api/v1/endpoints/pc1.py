@@ -372,32 +372,29 @@ def list_pc1_weeds(
 
 @router.post("/images/presigned-url")
 def get_pc1_upload_url(
-    req: PC1ImageUploadRequest, 
+    req: PC1ImageUploadRequest,
     request: Request,
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user)
 ):
-    """
-    Generates a secure, temporary URL to upload a weed image directly to MinIO.
-    """
-    # 1. Verify access to the mission/field before granting upload rights
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("SELECT field_id, mission_type FROM missions WHERE id = %s", (req.inspection_id,))
         mission = cur.fetchone()
-        
+
         if not mission:
             raise HTTPException(status_code=404, detail="Mission not found")
-        if mission["mission_type"] != "pc1_inspection_and_spraying" and mission["mission_type"] != "pc1_inspection":
+        if mission["mission_type"] not in ["pc1_inspection_and_spraying", "pc1_inspection"]:
             raise HTTPException(status_code=400, detail="Invalid mission type for PC1 images")
-            
+
         _ensure_field_access(cur, mission["field_id"], user)
 
-    minio_client = request.app.state.minio_client
+    minio_internal_client = request.app.state.minio_internal_client
+    minio_public_client = request.app.state.minio_public_client
     bucket_name = "agribot-mission-images"
-    
+
     # Ensure bucket exists
-    if not minio_client.bucket_exists(bucket_name):
-        minio_client.make_bucket(bucket_name)
+    if not minio_internal_client.bucket_exists(bucket_name):
+        minio_internal_client.make_bucket(bucket_name)
 
     # Generate hierarchical path: pc1/{inspection_id}/{uuid}.jpg
     file_ext = req.filename.split('.')[-1]
@@ -405,7 +402,7 @@ def get_pc1_upload_url(
     object_name = f"pc1/mission_{req.inspection_id}/{unique_name}"
 
     try:
-        url = minio_client.get_presigned_url(
+        url = minio_public_client.get_presigned_url(
             "PUT",
             bucket_name,
             object_name,
@@ -421,6 +418,7 @@ def get_pc1_upload_url(
         "object_key": object_name,
         "image_uri": f"minio://{bucket_name}/{object_name}"
     }
+
 
 
 

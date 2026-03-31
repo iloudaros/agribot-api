@@ -11,11 +11,10 @@ Enum user_role {
 }
 
 Table users {
-  id int [pk, increment]
-  username varchar [not null, unique]
+  id int [pk]
+  email varchar [not null, unique]
   password_hash varchar [not null]
   name varchar
-  surname varchar
   role user_role [not null, default: 'farmer']
   is_active boolean [not null, default: true]
   created_at timestamptz [not null, default: `now()`]
@@ -36,9 +35,8 @@ Table field_ownerships {
 }
 
 Table fields {
-  id int [pk, increment]
+  id int [pk]
   name varchar [not null]
-  location_center geometry [note:'Postgis Point']
   crop_name varchar
   boundary geometry [note:'Postgis Polygon']
   created_at timestamptz [not null, default: `now()`]

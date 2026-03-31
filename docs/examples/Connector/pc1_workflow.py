@@ -5,7 +5,7 @@ import sys
 
 # Configuration
 BASE_URL = "http://localhost:8080/api/v1"
-AUTH_DATA = {"username": "testuser", "password": "testpassword"}
+AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
 
 def get_iso_now():
     """Helper to get current time in ISO 8601 format with UTC timezone."""

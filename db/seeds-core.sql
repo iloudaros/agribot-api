@@ -13,48 +13,45 @@ TRUNCATE TABLE
     users
 RESTART IDENTITY CASCADE;
 
-INSERT INTO users (id, username, password_hash, name, surname, role, is_active, created_at)
+INSERT INTO users (id, email, password_hash, name, role, is_active, created_at)
 VALUES
     (
         1,
-        'admin',
+        'admin@agribot.local',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
-        'System',
-        'Admin',
+        'System Admin',
         'admin',
         true,
         NOW()
     ),
     (
         2,
-        'testuser',
+        'testuser@agribot.local',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
-        'Demo',
-        'Farmer',
+        'Demo Farmer',
         'farmer',
         true,
         NOW()
     ),
     (
         3,
-        'perfect_farmer',
+        'perfect_farmer@agribot.local',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
-        'Farmer',
-        'Perfect',
+        'Perfect Farmer',
         'farmer',
         true,
         NOW()
     ),
     (
         4,
-        'servicebot',
+        'servicebot@agribot.local',
         '$2b$12$9g7VmVub67brQoYXRrb1nORFAD397U9V01OceO3KQgteFp3Kd3ki2',
-        'Field',
-        'Operator',
+        'Field Operator',
         'service_provider',
         true,
         NOW()
     );
+
 
 -- Merged Farm logic into Fields. Fields now hold the location_center
 INSERT INTO fields (id, name, location_center, crop_name, boundary, created_at)
@@ -110,5 +107,4 @@ VALUES
 
 -- Sync the sequences so the next auto-generated IDs start AFTER our seeded data
 -- Note: 'farms' is removed from here since the table no longer exists
-SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
 SELECT setval(pg_get_serial_sequence('fields', 'id'), (SELECT MAX(id) FROM fields));

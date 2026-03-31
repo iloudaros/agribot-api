@@ -86,7 +86,7 @@ All API endpoints (except health checks) require a JWT Bearer Token.
 ```bash
 curl -X POST "http://localhost/api/v1/token" \
      -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "username=testuser&password=testpassword"
+     -d "username=testuser@agribot.local&password=testpassword"
 ```
 
 **2. Use the token:**

@@ -1,33 +1,26 @@
-# This script demonstrates how to batch onboard farmers, their farms, and fields into the AgriBot Data Lake using the API.
-#  It performs the following steps:
-# 1. Authenticates as a service provider to get an access token.
-# 2. Batch uploads multiple users (farmers) to the database.
-# 3. Batch uploads farms associated with the newly created users.
-# 4. Batch uploads fields associated with the newly created farms.
-# It is intended to be used by the FIRMP platform to onboard farmers and their data.
 import requests
 import sys
 
-# Configuration
 BASE_URL = "http://127.0.0.1:8080/api/v1"
 AUTH_DATA = {
-    "username": "admin",  # Replace with actual username from your dev env
-    "password": "testpassword"  # Replace with actual password from your dev env
+    "username": "admin@agribot.local",
+    "password": "testpassword"
 }
 
+
 def main():
-    print("--- AgriBot Data Lake Batch Onboarding ---")
+    print("--- AgriBot Data Lake Batch Onboarding (Users + Fields + Ownerships) ---")
 
     # ---------------------------------------------------------
     # 0. Authenticate & Get Token
     # ---------------------------------------------------------
-    print("\n1. Authenticating as service provider...")
+    print("\n1. Authenticating as admin/service provider...")
     auth_resp = requests.post(f"{BASE_URL}/auth/token", data=AUTH_DATA)
-    
+
     if auth_resp.status_code != 200:
         print(f"Auth Failed: {auth_resp.text}")
         sys.exit(1)
-        
+
     token = auth_resp.json()["access_token"]
     headers = {
         "Authorization": f"Bearer {token}",
@@ -38,85 +31,135 @@ def main():
     # ---------------------------------------------------------
     # 1. Batch Upload Users
     # ---------------------------------------------------------
-    print("\n2. Uploading Users...")
+    print("\n2. Uploading users...")
     users_payload = [
-        {"username": "mario.rossi", "password": "SecurePassword123!", "name": "Mario", "surname": "Rossi", "role": "farmer", "is_active": True},
-        {"username": "anna.smith", "password": "SecurePassword123!", "name": "Anna", "surname": "Smith", "role": "farmer", "is_active": True},
-        {"username": "nikos.papas", "password": "SecurePassword123!", "name": "Nikos", "surname": "Papas", "role": "farmer", "is_active": True}
-    ]
-
-    users_resp = requests.post(f"{BASE_URL}/core/users/batch", json=users_payload, headers=headers)
-    users_resp.raise_for_status()
-    created_users = users_resp.json()
-    
-    # Create a mapping of username -> new Database ID
-    user_id_map = {user["username"]: user["id"] for user in created_users}
-    print(f"✓ Uploaded {len(created_users)} users: {user_id_map}")
-
-    # ---------------------------------------------------------
-    # 2. Batch Upload Farms (Using the new User IDs)
-    # ---------------------------------------------------------
-    print("\n3. Uploading Farms...")
-    farms_payload = [
         {
-            "name": "Rossi Vineyards",
-            "center_lat": 44.4231,
-            "center_lon": 11.9542,
-            "owner_id": user_id_map["mario.rossi"]
+            "id": 1001,
+            "email": "mario.rossi@example.com",
+            "password": "SecurePassword123!",
+            "name": "Mario",
+            "role": "farmer",
+            "is_active": True
         },
         {
-            "name": "Smith Organic Potatoes",
-            "center_lat": 52.3412,
-            "center_lon": 4.8821,
-            "owner_id": user_id_map["anna.smith"]
+            "id": 1002,
+            "email": "anna.smith@example.com",
+            "password": "SecurePassword123!",
+            "name": "Anna",
+            "role": "farmer",
+            "is_active": True
         },
         {
-            "name": "Papas Olive Grove",
-            "center_lat": 38.2915,
-            "center_lon": 23.3730,
-            "owner_id": user_id_map["nikos.papas"]
+            "id": 1003,
+            "email": "nikos.papas@example.com",
+            "password": "SecurePassword123!",
+            "name": "Nikos",
+            "role": "farmer",
+            "is_active": True
         }
     ]
 
-    farms_resp = requests.post(f"{BASE_URL}/core/farms/batch", json=farms_payload, headers=headers)
-    farms_resp.raise_for_status()
-    created_farms = farms_resp.json()
-    
-    # Create a mapping of farm name -> new Database ID
-    farm_id_map = {farm["name"]: farm["id"] for farm in created_farms}
-    print(f"✓ Uploaded {len(created_farms)} farms: {farm_id_map}")
+    users_resp = requests.post(
+        f"{BASE_URL}/core/users/batch",
+        json=users_payload,
+        headers=headers
+    )
+    users_resp.raise_for_status()
+    created_users = users_resp.json()
+
+    user_id_map = {user["email"]: user["id"] for user in created_users}
+    print(f"✓ Uploaded {len(created_users)} users: {user_id_map}")
 
     # ---------------------------------------------------------
-    # 3. Batch Upload Fields (Using the new Farm IDs)
+    # 2. Batch Upload Fields
     # ---------------------------------------------------------
-    print("\n4. Uploading Fields...")
+    print("\n3. Uploading fields...")
     fields_payload = [
         {
-            "farm_id": farm_id_map["Rossi Vineyards"],
             "name": "North Block - Grapes",
             "crop_name": "Grapes",
+            "center_lat": 44.42325,
+            "center_lon": 11.95425,
             "boundary_wkt": "POLYGON((11.9540 44.4230, 11.9545 44.4230, 11.9545 44.4235, 11.9540 44.4235, 11.9540 44.4230))"
         },
         {
-            "farm_id": farm_id_map["Smith Organic Potatoes"],
             "name": "Field 12A - Potatoes",
             "crop_name": "Potato",
+            "center_lat": 52.3414,
+            "center_lon": 4.8824,
             "boundary_wkt": "POLYGON((4.8820 52.3410, 4.8828 52.3410, 4.8828 52.3418, 4.8820 52.3418, 4.8820 52.3410))"
         },
         {
-            "farm_id": farm_id_map["Papas Olive Grove"],
             "name": "South Olive Sector",
             "crop_name": "Olives",
+            "center_lat": 38.29165,
+            "center_lon": 23.37325,
             "boundary_wkt": "POLYGON((23.3730 38.2915, 23.3735 38.2915, 23.3735 38.2918, 23.3730 38.2918, 23.3730 38.2915))"
         }
     ]
 
-    fields_resp = requests.post(f"{BASE_URL}/core/fields/batch", json=fields_payload, headers=headers)
+    fields_resp = requests.post(
+        f"{BASE_URL}/core/fields/batch",
+        json=fields_payload,
+        headers=headers
+    )
     fields_resp.raise_for_status()
     created_fields = fields_resp.json()
-    
-    print(f"✓ Uploaded {len(created_fields)} fields.")
+
+    field_id_map = {field["name"]: field["id"] for field in created_fields}
+    print(f"✓ Uploaded {len(created_fields)} fields: {field_id_map}")
+
+    # ---------------------------------------------------------
+    # 3. Batch Assign Field Ownerships
+    # ---------------------------------------------------------
+    print("\n4. Assigning field ownerships...")
+    ownerships_payload = {
+        "items": [
+            {
+                "field_id": field_id_map["North Block - Grapes"],
+                "user_id": user_id_map["mario.rossi@example.com"],
+                "ownership_percentage": 100.0
+            },
+            {
+                "field_id": field_id_map["Field 12A - Potatoes"],
+                "user_id": user_id_map["anna.smith@example.com"],
+                "ownership_percentage": 100.0
+            },
+            {
+                "field_id": field_id_map["South Olive Sector"],
+                "user_id": user_id_map["nikos.papas@example.com"],
+                "ownership_percentage": 100.0
+            }
+        ]
+    }
+
+    ownerships_resp = requests.post(
+        f"{BASE_URL}/core/field-ownerships/batch",
+        json=ownerships_payload,
+        headers=headers
+    )
+    ownerships_resp.raise_for_status()
+    print(f"✓ {ownerships_resp.json()['message']}")
+
+    # ---------------------------------------------------------
+    # 4. Verify Final State
+    # ---------------------------------------------------------
+    print("\n5. Verifying accessible fields...")
+    fields_list_resp = requests.get(f"{BASE_URL}/core/fields", headers=headers)
+    fields_list_resp.raise_for_status()
+    final_fields = fields_list_resp.json()
+
+    print(f"✓ Retrieved {len(final_fields)} fields from API:")
+    for field in final_fields:
+        print(
+            f"  - Field ID: {field['id']} | "
+            f"Name: {field['name']} | "
+            f"Crop: {field.get('crop_name')} | "
+            f"Owners: {field.get('owners', [])}"
+        )
+
     print("\n--- Batch Onboarding Complete! ---")
+
 
 if __name__ == "__main__":
     try:

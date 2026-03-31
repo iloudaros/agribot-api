@@ -28,9 +28,15 @@ def get_db_conn(request: Request):
         request.app.state.db_pool.putconn(conn)
 
 def connect_to_minio(app: FastAPI):
-    """Create a Minio client and store it in the app state."""
-    app.state.minio_client = Minio(
-        settings.MINIO_SERVER,
+    app.state.minio_internal_client = Minio(
+        settings.MINIO_INTERNAL_SERVER,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=False
+    )
+
+    app.state.minio_public_client = Minio(
+        settings.MINIO_PUBLIC_SERVER,
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
         secure=False

@@ -1,11 +1,10 @@
 from datetime import timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
-
-from typing import Optional
 
 from app.core.db import get_db_conn
 from app.security import (
@@ -30,25 +29,25 @@ def login_for_access_token(
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT id, username, password_hash, role, is_active
+            SELECT id, email, password_hash, role, is_active
             FROM users
-            WHERE username = %s
+            WHERE email = %s
             """,
-            (form_data.username,)
+            (form_data.username,),
         )
         user = cur.fetchone()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not verify_password(form_data.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -60,7 +59,7 @@ def login_for_access_token(
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"]},
+        data={"sub": user["email"]},
         expires_delta=access_token_expires,
     )
 
@@ -71,20 +70,22 @@ def login_for_access_token(
 
 
 class FrontendLoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
+
 
 class UserProfile(BaseModel):
     id: int
-    username: str
+    email: str
     name: Optional[str] = None
-    surname: Optional[str] = None
     role: str
+
 
 class FrontendLoginResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserProfile
+
 
 @router.post("/farmer-login", response_model=FrontendLoginResponse, summary="Frontend login for Farmers (JSON)")
 def frontend_farmer_login(
@@ -94,51 +95,45 @@ def frontend_farmer_login(
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT id, username, password_hash, name, surname, role, is_active
+            SELECT id, email, password_hash, name, role, is_active
             FROM users
-            WHERE username = %s
+            WHERE email = %s
             """,
-            (credentials.username,)
+            (credentials.email,),
         )
         user = cur.fetchone()
 
-    # 1. Check if user exists and password is correct
     if not user or not verify_password(credentials.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
         )
 
-    # 2. Check if user is active
     if not user["is_active"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user",
         )
 
-    # 3. Restrict access to Farmers (and maybe Admins)
     if user["role"] not in ["farmer", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This portal is restricted to farmers.",
         )
 
-    # 4. Generate Token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"]},
+        data={"sub": user["email"]},
         expires_delta=access_token_expires,
     )
 
-    # 5. Return Token AND User Profile
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
             "id": user["id"],
-            "username": user["username"],
+            "email": user["email"],
             "name": user["name"],
-            "surname": user["surname"],
             "role": user["role"]
         }
     }

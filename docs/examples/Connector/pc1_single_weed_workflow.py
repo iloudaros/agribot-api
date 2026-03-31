@@ -9,7 +9,7 @@ import sys
 
 # Configuration
 BASE_URL = "http://localhost:8080/api/v1"
-AUTH_DATA = {"username": "testuser", "password": "supersecretpassword"}
+AUTH_DATA = {"username": "testuser@agribot.local", "password": "supersecretpassword"}
 
 def get_iso_now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()

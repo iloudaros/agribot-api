@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field as PydanticField
 
@@ -8,64 +8,66 @@ MissionStatus = Literal["ongoing", "complete", "canceled", "aborted"]
 SprayingMissionType = Literal["pc1_inspection", "pc1_spraying", "pc2_spraying"]
 PC1MissionStatus = Literal["ongoing", "inspection_complete", "spraying_complete", "aborted"]
 
+
 ###############################
 # Core Infrastructure Schemas #
 ###############################
 class UserCreate(BaseModel):
-    username: str
+    id: int
+    email: str
     password: str
     name: Optional[str] = None
-    surname: Optional[str] = None
-    role: str = "farmer"  # defaults to farmer
+    role: str = "farmer"
     is_active: bool = True
+
 
 class UserResponse(BaseModel):
     id: int
-    username: str
+    email: str
     name: Optional[str] = None
-    surname: Optional[str] = None
     role: str
     is_active: bool
 
-class FarmOwner(BaseModel):
+
+class FieldOwner(BaseModel):
     user_id: int
     ownership_percentage: float
 
 
-class FarmCreate(BaseModel):
-    name: str
-    center_lat: float
-    center_lon: float
-    ownership_percentage: float = 100.0
-
-class FarmBatchCreate(BaseModel):
-    name: str
-    center_lat: float
-    center_lon: float
-    ownership_percentage: float = 100.0
-    owner_id: int  
-
-class Farm(BaseModel):
-    id: int
-    name: str
-    center_lat: Optional[float] = None
-    center_lon: Optional[float] = None
-    owners: List[FarmOwner] = PydanticField(default_factory=list)
-
-
 class FieldCreate(BaseModel):
-    farm_id: int
     name: str
     crop_name: Optional[str] = None
+    center_lat: Optional[float] = None
+    center_lon: Optional[float] = None
+    boundary_wkt: Optional[str] = None
+
+
+class FieldBatchCreate(BaseModel):
+    name: str
+    crop_name: Optional[str] = None
+    center_lat: Optional[float] = None
+    center_lon: Optional[float] = None
     boundary_wkt: Optional[str] = None
 
 
 class Field(BaseModel):
     id: int
-    farm_id: int
     name: str
     crop_name: Optional[str] = None
+    center_lat: Optional[float] = None
+    center_lon: Optional[float] = None
     boundary_wkt: Optional[str] = None
+    owners: List[FieldOwner] = PydanticField(default_factory=list)
+
+
+class FieldOwnershipCreate(BaseModel):
+    field_id: int
+    user_id: int
+    ownership_percentage: float
+
+
+class FieldOwnershipBatchCreate(BaseModel):
+    items: List[FieldOwnershipCreate]
 
 
 ###################
@@ -100,44 +102,9 @@ class Mission(MissionBase):
     start_time: datetime
     end_time: Optional[datetime] = None
 
+
 class MissionCreate(MissionBase):
-    id: Optional[int] = None  
-
-
-
-# class PC2SprayingMetadata(BaseModel):
-#     max_lat: Optional[float] = None
-#     min_lat: Optional[float] = None
-#     max_long: Optional[float] = None
-#     min_long: Optional[float] = None
-#     area_analyzed: Optional[float] = None
-#     average_density: Optional[float] = None
-#     crop_weed_correlation: Optional[float] = None
-#     weed_liquid_correlation: Optional[float] = None
-
-# class SprayingMissionCreate(BaseModel):
-#     id: Optional[str] = None
-#     field_id: int
-#     mission_type: SprayingMissionType
-#     status: MissionStatus = "complete"
-#     start_time: datetime
-#     end_time: Optional[datetime] = None
-#     mission_date: Optional[datetime] = None
-#     pc2_properties: Optional[Dict[str, Any]] = None
-#     pc2_metadata: Optional[PC2SprayingMetadata] = None
-
-
-# class SprayingMission(BaseModel):
-#     id: str
-#     commander_id: Optional[int] = None
-#     field_id: Optional[int] = None
-#     mission_type: str
-#     status: str
-#     start_time: Optional[datetime] = None
-#     end_time: Optional[datetime] = None
-#     mission_date: Optional[datetime] = None
-#     pc2_properties: Optional[Dict[str, Any]] = None
-#     pc2_metadata: Optional[PC2SprayingMetadata] = None
+    id: Optional[int] = None
 
 
 ###############
@@ -147,13 +114,15 @@ class PC1MissionState(BaseModel):
     mission_id: int
     status: PC1MissionStatus
 
+
 class WeedUpdate(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
     verified: Optional[bool] = None
 
+
 class WeedCreate(BaseModel):
-    id: int  
+    id: int
     inspection_id: int
     name: Optional[str] = None
     image: Optional[str] = None
@@ -165,15 +134,17 @@ class WeedCreate(BaseModel):
     is_sprayed: bool = False
     spray_time: Optional[datetime] = None
 
+
 class WeedBatchUpdateItem(BaseModel):
-    id: int  
-    inspection_id: int 
+    id: int
+    inspection_id: int
     is_sprayed: bool
     spray_time: Optional[datetime] = None
     verified: Optional[bool] = None
 
+
 class Weed(BaseModel):
-    id: int 
+    id: int
     inspection_id: int
     name: Optional[str] = None
     image: Optional[str] = None
@@ -185,16 +156,15 @@ class Weed(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
 
+
 class PC1ImageUploadRequest(BaseModel):
     filename: str
     inspection_id: int
 
 
-
 ###############
 # PC3 Schemas #
 ###############
-
 class PC3InspectionItem(BaseModel):
     timestamp_unix: float
     latitude: float
@@ -209,6 +179,7 @@ class PC3InspectionItem(BaseModel):
     avg_ndvi: Optional[float] = None
     avg_biomass: Optional[float] = None
     avg_fertilization: Optional[float] = None
+
 
 class PC3InspectionBatch(BaseModel):
     mission_id: int
