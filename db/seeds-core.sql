@@ -53,13 +53,11 @@ VALUES
     );
 
 
--- Merged Farm logic into Fields. Fields now hold the location_center
-INSERT INTO fields (id, name, location_center, crop_name, boundary, created_at)
+INSERT INTO fields (id, name, crop_name, boundary, created_at)
 VALUES
     (
         44,
         'Field 26 - Demo Spraying',
-        ST_SetSRID(ST_MakePoint(23.373150, 38.291430), 4326),
         'Potato',
         ST_GeomFromText(
             'POLYGON((
@@ -76,7 +74,6 @@ VALUES
     (
         45,
         'Leafy Block A - Demo Monitoring',
-        ST_SetSRID(ST_MakePoint(16.798420, 41.139860), 4326),
         'Leafy vegetables',
         ST_GeomFromText(
             'POLYGON((
