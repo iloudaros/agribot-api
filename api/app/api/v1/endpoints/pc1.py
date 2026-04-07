@@ -17,6 +17,8 @@ from app.models.schemas import (
 )
 from app.security import UserInDB, get_current_active_user
 from app.api.forward.pc1 import push_pc1_inspection_data, push_pc1_sprayed_weeds_data
+from app.core.config import settings
+
 
 router = APIRouter()
 
@@ -25,8 +27,8 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     """
     Ensure that the current user has access to the given field.
 
-    Admins automatically have access to everything.
-    Non-admin users must have a corresponding record in field_ownerships.
+    Admin users can access everything.
+    Other users must have an ownership record in field_ownerships.
     """
     if user.role == "admin":
         return
@@ -43,34 +45,31 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
     if cur.fetchone() is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have access to this field",
+            detail="You do not have access to this field"
         )
 
 
 def _parse_minio_uri(image_uri: str) -> tuple[str, str]:
     """
-    Convert a stored MinIO URI of the form:
+    Parse a MinIO URI of the form:
 
         minio://bucket-name/path/to/object.jpg
 
-    into:
+    and return:
 
         (bucket_name, object_key)
-
-    This is useful when we want to generate a temporary GET URL
-    for the frontend or for forwarding data to external systems.
     """
     if not image_uri or not image_uri.startswith("minio://"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid MinIO image URI",
+            detail="Invalid MinIO image URI"
         )
 
     uri_parts = image_uri.replace("minio://", "", 1).split("/", 1)
     if len(uri_parts) != 2:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Malformed image URI in database",
+            detail="Malformed image URI in database"
         )
 
     return uri_parts[0], uri_parts[1]
@@ -86,10 +85,7 @@ def list_pc1_missions(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Return all PC1-related missions visible to the current user.
-
-    Admins can see all PC1 missions.
-    Farmers and other non-admins can only see missions for fields they own.
+    List all PC1 missions visible to the current user.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         if user.role == "admin":
@@ -124,25 +120,16 @@ def update_pc1_mission_state(
     background_tasks: BackgroundTasks,
     request: Request,
     conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user),
+    user: UserInDB = Depends(get_current_active_user)
 ):
     """
-    Update the PC1-specific mission state.
-
-    This state machine is separate from the generic mission.status field.
-    It is used to model the PC1 workflow:
-
-    * ongoing
-    * inspection_complete
-    * spraying_complete
-    * aborted
-
-    State transitions may also trigger background forwarding to AgroApps.
+    Update the PC1-specific mission state and trigger background forwarding
+    when key milestones are reached.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate that the mission exists and the user has access to it
-        # ------------------------------------------------------------------
+        # --------------------------------------------------------------
+        # 1. Validate access to the mission
+        # --------------------------------------------------------------
         cur.execute(
             """
             SELECT field_id, start_time
@@ -158,9 +145,9 @@ def update_pc1_mission_state(
 
         _ensure_field_access(cur, mission["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Upsert the PC1-specific mission state
-        # ------------------------------------------------------------------
+        # --------------------------------------------------------------
+        # 2. Upsert PC1 mission status
+        # --------------------------------------------------------------
         cur.execute(
             """
             INSERT INTO pc1_missions (mission_id, status)
@@ -172,13 +159,11 @@ def update_pc1_mission_state(
             (mission_id, state.status),
         )
         updated_state = cur.fetchone()
-
-        # Commit here so the state is stored even if a later forwarding step fails.
         conn.commit()
 
-        # ------------------------------------------------------------------
-        # 3. Trigger forwarding to AgroApps when inspection is completed
-        # ------------------------------------------------------------------
+        # --------------------------------------------------------------
+        # 3. If inspection completed, forward weed detection data
+        # --------------------------------------------------------------
         if state.status == "inspection_complete":
             cur.execute(
                 """
@@ -196,14 +181,14 @@ def update_pc1_mission_state(
             )
             weeds_data = cur.fetchall()
 
+            # Use PUBLIC MinIO client here because we are generating URLs
+            # for an external system to consume.
             minio_public_client = request.app.state.minio_public_client
             weeds_payload = []
 
             for w in weeds_data:
                 external_image_url = w["image"]
 
-                # If the image is stored as a MinIO URI, convert it to a
-                # temporary public GET URL so AgroApps can access it.
                 if external_image_url and external_image_url.startswith("minio://"):
                     try:
                         bucket_name, object_key = _parse_minio_uri(external_image_url)
@@ -213,10 +198,8 @@ def update_pc1_mission_state(
                             object_key,
                             expires=timedelta(days=7),
                         )
-                    except Exception:
-                        # If URL generation fails, keep the original value.
-                        # We do not want the whole request to fail because of a single image URL.
-                        pass
+                    except Exception as e:
+                        print(f"Warning: Could not generate URL for webhook: {e}")
 
                 weeds_payload.append(
                     {
@@ -240,9 +223,9 @@ def update_pc1_mission_state(
 
             background_tasks.add_task(push_pc1_inspection_data, payload)
 
-        # ------------------------------------------------------------------
-        # 4. Trigger forwarding to AgroApps when spraying is completed
-        # ------------------------------------------------------------------
+        # --------------------------------------------------------------
+        # 4. If spraying completed, forward sprayed weed data
+        # --------------------------------------------------------------
         elif state.status == "spraying_complete":
             cur.execute(
                 """
@@ -283,19 +266,12 @@ def get_pc1_upload_url(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Generate a temporary presigned PUT URL so a connector can upload an image
-    directly to MinIO without sending the binary through FastAPI.
+    Generate a presigned PUT URL so the connector can upload images directly
+    to MinIO.
 
-    Important:
-    * Bucket checks / creation use the INTERNAL MinIO client because they happen
-      inside the Kubernetes cluster.
-    * The presigned URL itself uses the PUBLIC MinIO client so that the caller
-      running outside the cluster can actually reach the generated URL.
+    The bucket is assumed to already exist.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate mission and field access
-        # ------------------------------------------------------------------
         cur.execute(
             """
             SELECT field_id, mission_type
@@ -314,29 +290,13 @@ def get_pc1_upload_url(
 
         _ensure_field_access(cur, mission["field_id"], user)
 
-    minio_internal_client = request.app.state.minio_internal_client
     minio_public_client = request.app.state.minio_public_client
     bucket_name = "agribot-mission-images"
 
-    # ----------------------------------------------------------------------
-    # 2. Ensure the bucket exists using the INTERNAL MinIO endpoint
-    # ----------------------------------------------------------------------
-    try:
-        if not minio_internal_client.bucket_exists(bucket_name):
-            minio_internal_client.make_bucket(bucket_name)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
-
-    # ----------------------------------------------------------------------
-    # 3. Generate a unique object key inside the mission folder
-    # ----------------------------------------------------------------------
     file_ext = req.filename.split(".")[-1] if "." in req.filename else "bin"
     unique_name = f"{uuid.uuid4()}.{file_ext}"
     object_name = f"pc1/mission_{req.inspection_id}/{unique_name}"
 
-    # ----------------------------------------------------------------------
-    # 4. Generate the public presigned PUT URL using the PUBLIC MinIO client
-    # ----------------------------------------------------------------------
     try:
         upload_url = minio_public_client.get_presigned_url(
             "PUT",
@@ -355,6 +315,8 @@ def get_pc1_upload_url(
     }
 
 
+
+
 @router.get("/weeds/{inspection_id}/{weed_id}/image-url")
 def get_pc1_weed_image_url(
     inspection_id: int,
@@ -364,18 +326,12 @@ def get_pc1_weed_image_url(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Generate a temporary presigned GET URL so the frontend can display
-    a weed image stored in MinIO.
-
-    The database stores the image as a MinIO URI:
-        minio://bucket/object-key
-
-    This endpoint converts it to a temporary HTTP URL.
+    Generate a presigned GET URL so the frontend can display a weed image.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Load the weed and make sure the user can access its field
-        # ------------------------------------------------------------------
+        # --------------------------------------------------------------
+        # 1. Load weed record and validate access
+        # --------------------------------------------------------------
         cur.execute(
             """
             SELECT w.image, m.field_id
@@ -403,11 +359,11 @@ def get_pc1_weed_image_url(
     bucket_name, object_key = _parse_minio_uri(row["image"])
     minio_public_client = request.app.state.minio_public_client
 
-    # ----------------------------------------------------------------------
-    # 2. Generate a temporary GET URL that the frontend can use directly
-    # ----------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # 2. Generate public presigned GET URL
+    # --------------------------------------------------------------
     try:
-        url = minio_public_client.get_presigned_url(
+        image_url = minio_public_client.get_presigned_url(
             "GET",
             bucket_name,
             object_key,
@@ -416,7 +372,7 @@ def get_pc1_weed_image_url(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
 
-    return {"image_url": url}
+    return {"image_url": image_url}
 
 
 # ==========================================
@@ -430,18 +386,12 @@ def create_pc1_weeds_batch(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Create multiple weeds in a single request.
-
-    Each weed belongs to one inspection mission and may optionally reference
-    an image stored in MinIO via a minio:// URI.
+    Create multiple weed records in one request.
     """
     if not weeds_in:
         return []
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate all referenced missions and access permissions
-        # ------------------------------------------------------------------
         mission_ids = list(set(w.inspection_id for w in weeds_in))
         cur.execute(
             """
@@ -456,12 +406,8 @@ def create_pc1_weeds_batch(
         for mission_id in mission_ids:
             if mission_id not in missions:
                 raise HTTPException(status_code=404, detail=f"Mission {mission_id} not found")
-
             _ensure_field_access(cur, missions[mission_id]["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Bulk insert weeds
-        # ------------------------------------------------------------------
         query = """
             INSERT INTO pc1_weed (
                 id,
@@ -541,7 +487,7 @@ def create_pc1_weed(
     """
     Legacy single-item weed creation endpoint.
 
-    Prefer /weeds/batch for real connector integrations.
+    Prefer the batch endpoint for connectors.
     """
     if not weed.id:
         raise HTTPException(status_code=400, detail="Weed id is required")
@@ -549,13 +495,10 @@ def create_pc1_weed(
     if (weed.latitude is None) != (weed.longitude is None):
         raise HTTPException(
             status_code=400,
-            detail="latitude and longitude must either both be provided or omitted",
+            detail="latitude and longitude must either both be provided or omitted"
         )
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate mission and access
-        # ------------------------------------------------------------------
         cur.execute(
             """
             SELECT id, field_id, mission_type
@@ -572,14 +515,11 @@ def create_pc1_weed(
         if inspection["mission_type"] not in ["pc1_inspection", "pc1_inspection_and_spraying"]:
             raise HTTPException(
                 status_code=400,
-                detail="Weeds can only be attached to PC1 inspection missions",
+                detail="Weeds can only be attached to PC1 inspection missions"
             )
 
         _ensure_field_access(cur, inspection["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Insert weed
-        # ------------------------------------------------------------------
         cur.execute(
             """
             INSERT INTO pc1_weed (
@@ -650,19 +590,12 @@ def update_pc1_weeds_batch(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Batch update weed verification / sprayed status.
-
-    Matching uses the composite key:
-    * id
-    * inspection_id
+    Batch update verification and sprayed status for weeds.
     """
     if not updates:
         return []
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate access for all involved missions
-        # ------------------------------------------------------------------
         mission_ids = list(set(u.inspection_id for u in updates))
         cur.execute(
             """
@@ -677,9 +610,6 @@ def update_pc1_weeds_batch(
         for mission in missions:
             _ensure_field_access(cur, mission["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Bulk update by composite key
-        # ------------------------------------------------------------------
         query = """
             UPDATE pc1_weed AS w
             SET verified = data.verified::boolean,
@@ -722,13 +652,8 @@ def update_pc1_weed(
 ):
     """
     Legacy single-item weed update endpoint.
-
-    Prefer /weeds/batch for real connector integrations.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Load weed and validate access
-        # ------------------------------------------------------------------
         cur.execute(
             """
             SELECT w.id, w.inspection_id, m.field_id
@@ -746,9 +671,6 @@ def update_pc1_weed(
 
         _ensure_field_access(cur, weed_row["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Update using the composite key
-        # ------------------------------------------------------------------
         cur.execute(
             """
             UPDATE pc1_weed
@@ -791,12 +713,9 @@ def list_pc1_weeds(
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    List all weeds belonging to a single inspection mission.
+    List all weeds for a given inspection mission.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # ------------------------------------------------------------------
-        # 1. Validate mission and access
-        # ------------------------------------------------------------------
         cur.execute(
             """
             SELECT id, field_id
@@ -812,9 +731,6 @@ def list_pc1_weeds(
 
         _ensure_field_access(cur, inspection["field_id"], user)
 
-        # ------------------------------------------------------------------
-        # 2. Return weeds
-        # ------------------------------------------------------------------
         cur.execute(
             """
             SELECT

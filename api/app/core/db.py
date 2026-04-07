@@ -76,4 +76,20 @@ def connect_to_minio(app: FastAPI):
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
         secure=False,
+        region="us-east-1",
     )
+
+
+def ensure_minio_bucket(app: FastAPI, bucket_name: str = "agribot-mission-images"):
+    """
+    Ensure the required MinIO bucket exists.
+
+    This runs once at startup using the INTERNAL MinIO client.
+    """
+    minio_internal_client = app.state.minio_internal_client
+
+    try:
+        if not minio_internal_client.bucket_exists(bucket_name):
+            minio_internal_client.make_bucket(bucket_name)
+    except Exception as e:
+        print(f"Warning: could not ensure MinIO bucket '{bucket_name}': {e}")

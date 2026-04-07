@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.v1.api import api_router
-from app.core.db import connect_to_db, close_db_connection, connect_to_minio
+from app.core.db import connect_to_db, close_db_connection, connect_to_minio, ensure_minio_bucket
 
 # 1. Define the lifespan context manager
 @asynccontextmanager
@@ -9,6 +9,7 @@ async def lifespan(app: FastAPI):
     # Startup logic
     connect_to_db(app)
     connect_to_minio(app)
+    ensure_minio_bucket(app)
     yield
     # Shutdown logic
     close_db_connection(app)
