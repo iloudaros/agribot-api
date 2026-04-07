@@ -2,8 +2,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 TRUNCATE TABLE
     pc3_inspections,
-    pc2_spraying_mission,
-    pc2_spraying_metadata,
+    pc2_missions,
     pc1_weed,
     pc1_missions,      -- Added new PC1 status table
     missions,
