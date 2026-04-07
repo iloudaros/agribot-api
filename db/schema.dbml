@@ -11,7 +11,7 @@ Enum user_role {
 }
 
 Table users {
-  id int [pk]
+  id int [pk, increment]
   email varchar [not null, unique]
   password_hash varchar [not null]
   name varchar
@@ -35,7 +35,7 @@ Table field_ownerships {
 }
 
 Table fields {
-  id int [pk]
+  id int [pk, increment]
   name varchar [not null]
   crop_name varchar
   boundary geometry [note:'Postgis Polygon']
