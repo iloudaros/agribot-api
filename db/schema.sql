@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-03-31T21:11:35.975Z
+-- Generated at: 2026-04-07T03:43:40.535Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -87,21 +87,9 @@ CREATE TABLE "pc1_missions" (
   "status" pc1_mission_status
 );
 
-CREATE TABLE "pc2_spraying_metadata" (
-  "id" int PRIMARY KEY,
-  "max_lat" float,
-  "min_lat" float,
-  "max_long" float,
-  "min_long" float,
-  "area_analyzed" float,
-  "average_density" float,
-  "crop_weed_correlation" float,
-  "weed_liquid_correlation" float
-);
-
-CREATE TABLE "pc2_spraying_mission" (
-  "id" int PRIMARY KEY,
-  "properties" jsonb
+CREATE TABLE "pc2_missions" (
+  "mission_id" int PRIMARY KEY,
+  "geojson_uri" varchar
 );
 
 CREATE TABLE "pc3_inspections" (
@@ -159,8 +147,6 @@ ALTER TABLE "pc1_weed" ADD FOREIGN KEY ("inspection_id") REFERENCES "missions" (
 
 ALTER TABLE "pc1_missions" ADD FOREIGN KEY ("mission_id") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "pc2_spraying_metadata" ADD FOREIGN KEY ("id") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;
-
-ALTER TABLE "pc2_spraying_mission" ADD FOREIGN KEY ("id") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "pc2_missions" ADD FOREIGN KEY ("mission_id") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "pc3_inspections" ADD FOREIGN KEY ("mission_id") REFERENCES "missions" ("id") DEFERRABLE INITIALLY IMMEDIATE;

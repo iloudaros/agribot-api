@@ -161,6 +161,26 @@ class PC1ImageUploadRequest(BaseModel):
     inspection_id: int
 
 
+
+
+
+###############
+# PC2 Schemas #
+###############
+class PC2GeoJSONUploadRequest(BaseModel):
+    mission_id: int
+    filename: str = "mission.geojson"
+
+class PC2MissionConfirm(BaseModel):
+    geojson_uri: str
+
+class PC2Mission(BaseModel):
+    mission_id: int
+    geojson_uri: str
+
+
+
+
 ###############
 # PC3 Schemas #
 ###############

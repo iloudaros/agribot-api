@@ -111,28 +111,15 @@ Table pc1_missions {
 
 
 TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and volunteer potatoes" [color: #D95B16]{
-  pc2_spraying_metadata
-  pc2_spraying_mission
+  pc2_missions
 
 }
 
-Table pc2_spraying_metadata
-{
-  id int [pk, ref: > missions.id]
-  max_lat float
-  min_lat float
-  max_long float
-  min_long float
-  area_analyzed float
-  average_density float
-  crop_weed_correlation float
-  weed_liquid_correlation float
-}
 
-Table pc2_spraying_mission 
+Table pc2_missions
 {
-  id int [pk, ref: > missions.id]
-  properties jsonb
+  mission_id int [pk, ref: > missions.id]
+  geojson_uri varchar
 }
 
 TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy vegetables in open field conditions" [color: #A934C1]{
