@@ -13,11 +13,12 @@ const AUTH_DATA = new URLSearchParams({
 const DUMMY_FORWARDED_PAYLOAD = {
   parcel_id: 44,
   date: "2026-04-07",
-  file_path: "http://127.0.0.1:8080/api/v1/pc2/missions/4/geojson" 
+  geojson_path: "http://127.0.0.1:8080/api/v1/pc2/missions/4/geojson",
+  geotiff_path: "http://127.0.0.1:8080/api/v1/pc2/missions/4/geotiff"
 };
 
 async function main() {
-  console.log("--- FIRMP Node.js GeoJSON Download Test ---");
+  console.log("--- FIRMP Node.js PC2 Download Test (GeoJSON & GeoTIFF) ---");
 
   try {
     // -----------------------------------------------------
@@ -40,12 +41,12 @@ async function main() {
     console.log("✓ Token acquired.");
 
     // -----------------------------------------------------
-    // 2. Fetch the Secure GeoJSON File
+    // 2. Fetch & Save the Secure GeoJSON File
     // -----------------------------------------------------
-    const targetUrl = DUMMY_FORWARDED_PAYLOAD.file_path;
-    console.log(`\n2. Securely fetching GeoJSON from:\n   ${targetUrl}`);
+    const geojsonUrl = DUMMY_FORWARDED_PAYLOAD.geojson_path;
+    console.log(`\n2. Securely fetching GeoJSON from:\n   ${geojsonUrl}`);
     
-    const geoJsonResponse = await fetch(targetUrl, {
+    const geoJsonResponse = await fetch(geojsonUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}` // MUST attach token!
@@ -54,20 +55,46 @@ async function main() {
 
     if (!geoJsonResponse.ok) {
       const err = await geoJsonResponse.text();
-      throw new Error(`Download Failed (${geoJsonResponse.status}): ${err}`);
+      throw new Error(`GeoJSON Download Failed (${geoJsonResponse.status}): ${err}`);
     }
 
-    // -----------------------------------------------------
-    // 3. Save it locally
-    // -----------------------------------------------------
-    const fileData = await geoJsonResponse.text();
-    const fileName = `downloaded_parcel_${DUMMY_FORWARDED_PAYLOAD.parcel_id}.geojson`;
+    const geoJsonData = await geoJsonResponse.text();
+    const geoJsonFileName = `downloaded_parcel_${DUMMY_FORWARDED_PAYLOAD.parcel_id}.geojson`;
+    fs.writeFileSync(geoJsonFileName, geoJsonData);
     
-    fs.writeFileSync(fileName, fileData);
+    console.log(`✓ Success! GeoJSON downloaded securely.`);
+    console.log(`✓ Saved to disk as: ${geoJsonFileName}`);
+    console.log(`✓ File size: ${(geoJsonData.length / 1024).toFixed(2)} KB`);
+
+
+    // -----------------------------------------------------
+    // 3. Fetch & Save the Secure GeoTIFF File (Binary)
+    // -----------------------------------------------------
+    const geotiffUrl = DUMMY_FORWARDED_PAYLOAD.geotiff_path;
+    console.log(`\n3. Securely fetching GeoTIFF from:\n   ${geotiffUrl}`);
     
-    console.log(`\n✓ Success! File downloaded securely.`);
-    console.log(`✓ Saved to disk as: ${fileName}`);
-    console.log(`✓ File size: ${(fileData.length / 1024).toFixed(2)} KB`);
+    const geoTiffResponse = await fetch(geotiffUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}` // MUST attach token!
+      }
+    });
+
+    if (!geoTiffResponse.ok) {
+      const err = await geoTiffResponse.text();
+      throw new Error(`GeoTIFF Download Failed (${geoTiffResponse.status}): ${err}`);
+    }
+
+    // Convert the response to an ArrayBuffer, then a Node.js Buffer for binary writing
+    const arrayBuffer = await geoTiffResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const geoTiffFileName = `downloaded_parcel_${DUMMY_FORWARDED_PAYLOAD.parcel_id}_map.tif`;
+    
+    fs.writeFileSync(geoTiffFileName, buffer);
+    
+    console.log(`✓ Success! GeoTIFF downloaded securely.`);
+    console.log(`✓ Saved to disk as: ${geoTiffFileName}`);
+    console.log(`✓ File size: ${(buffer.length / 1024).toFixed(2)} KB`);
 
   } catch (error) {
     console.error(`\n❌ Error: ${error.message}`);
