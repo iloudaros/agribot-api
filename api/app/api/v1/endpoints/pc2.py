@@ -11,7 +11,9 @@ from app.models.schemas import (
     Mission,
     PC2GeoJSONUploadRequest,
     PC2MissionConfirm,
-    PC2Mission
+    PC2Mission,
+    PC2GeoTIFFUploadRequest,
+    PC2GeoTIFFConfirm
 )
 from app.security import UserInDB, get_current_active_user
 
