@@ -120,6 +120,7 @@ Table pc2_missions
 {
   mission_id int [pk, ref: > missions.id]
   geojson_uri varchar
+  geotiff_uri varchar
 }
 
 TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy vegetables in open field conditions" [color: #A934C1]{
