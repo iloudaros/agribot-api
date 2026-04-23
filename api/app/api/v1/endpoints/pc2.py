@@ -126,10 +126,9 @@ def confirm_pc2_geojson(
 ):
     """
     Save the GeoJSON MinIO URI to the database after successful upload,
-    and forward the link to AgroApps in the background.
+    and forward the available secure links to AgroApps.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # Fetch start_time so we can extract the date for AgroApps
         cur.execute("SELECT field_id, start_time FROM missions WHERE id = %s", (mission_id,))
         mission = cur.fetchone()
         if not mission:
@@ -142,7 +141,7 @@ def confirm_pc2_geojson(
             INSERT INTO pc2_missions (mission_id, geojson_uri)
             VALUES (%s, %s)
             ON CONFLICT (mission_id) DO UPDATE SET geojson_uri = EXCLUDED.geojson_uri
-            RETURNING mission_id, geojson_uri
+            RETURNING mission_id, geojson_uri, geotiff_uri
             """,
             (mission_id, payload.geojson_uri)
         )
@@ -150,20 +149,19 @@ def confirm_pc2_geojson(
         conn.commit()
 
     # --------------------------------------------------------------
-    # Webhook Logic: Forward the Secure API Endpoint to AgroApps
+    # Webhook Logic: Forward the Secure API Endpoints
     # --------------------------------------------------------------
-    
-    # Construct the base URL of your API (e.g., http://127.0.0.1:8080 or https://api.agribot.eu)
     base_url = str(request.base_url).rstrip("/")
-    secure_download_url = f"{base_url}/api/v1/pc2/missions/{mission_id}/geojson"
-
     agroapps_payload = {
         "parcel_id": mission["field_id"],
-        "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else "",
-        "file_path": secure_download_url
+        "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else ""
     }
+    
+    if saved_record.get("geojson_uri"):
+        agroapps_payload["geojson_path"] = f"{base_url}/api/v1/pc2/missions/{mission_id}/geojson"
+    if saved_record.get("geotiff_uri"):
+        agroapps_payload["geotiff_path"] = f"{base_url}/api/v1/pc2/missions/{mission_id}/geotiff"
 
-    # Dispatch the task to the background queue
     background_tasks.add_task(push_pc2_spraying_data, agroapps_payload)
 
     return saved_record
@@ -276,14 +274,17 @@ def get_pc2_geotiff_upload_url(
 def confirm_pc2_geotiff(
     mission_id: int,
     payload: PC2GeoTIFFConfirm,
+    background_tasks: BackgroundTasks,
+    request: Request,
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user),
 ):
     """
-    Save the GeoTIFF MinIO URI to the database after successful upload.
+    Save the GeoTIFF MinIO URI to the database after successful upload,
+    and forward the available secure links to AgroApps.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id FROM missions WHERE id = %s", (mission_id,))
+        cur.execute("SELECT field_id, start_time FROM missions WHERE id = %s", (mission_id,))
         mission = cur.fetchone()
         if not mission:
             raise HTTPException(status_code=404, detail="Mission not found")
@@ -301,6 +302,22 @@ def confirm_pc2_geotiff(
         )
         saved_record = cur.fetchone()
         conn.commit()
+
+    # --------------------------------------------------------------
+    # Webhook Logic: Forward the Secure API Endpoints
+    # --------------------------------------------------------------
+    base_url = str(request.base_url).rstrip("/")
+    agroapps_payload = {
+        "parcel_id": mission["field_id"],
+        "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else ""
+    }
+    
+    if saved_record.get("geojson_uri"):
+        agroapps_payload["geojson_path"] = f"{base_url}/api/v1/pc2/missions/{mission_id}/geojson"
+    if saved_record.get("geotiff_uri"):
+        agroapps_payload["geotiff_path"] = f"{base_url}/api/v1/pc2/missions/{mission_id}/geotiff"
+
+    background_tasks.add_task(push_pc2_spraying_data, agroapps_payload)
 
     return saved_record
 

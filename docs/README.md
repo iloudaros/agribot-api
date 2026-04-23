@@ -160,7 +160,7 @@ We push the data to the FIRMP platform for visualization and analysis via Webhoo
 
 ---
 
-### 🥔 PC2 (Ecorobotix): Robotic Spraying of Weeds for Potatoes
+### 🥔 PC2 (Ecorobotix & DTI): Robotic Spraying of Weeds for Potatoes
 **Context:** Robots traversing a field to spray liquids on weeds. Generates a large Application Map (GeoJSON) detailing sprayed zones.
 
 
