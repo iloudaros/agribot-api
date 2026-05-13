@@ -5,6 +5,7 @@ from app.core.db import get_db_conn
 from app.models.schemas import Mission, MissionCreate, MissionUpdate
 from app.security import UserInDB, get_current_active_user
 from app.api.forward.pc3 import push_vegetation_indices
+from app.api.forward.pc4 import push_pc4_monitoring_data
 router = APIRouter()
 
 def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
@@ -128,6 +129,35 @@ def update_mission(
                 }
                 # Dispatch the API call without slowing down the HTTP response
                 background_tasks.add_task(push_vegetation_indices, payload)
+
+        # ---------------------------------------------------------
+        # AGROAPPS PC4 WEBHOOK LOGIC
+        # ---------------------------------------------------------
+        elif updated_mission["status"] == "complete" and updated_mission["mission_type"] == "pc4_monitoring":
+            # Fetch all the channel metrics for this mission
+            cur.execute("""
+                SELECT channel_name, biomass, fruit_quality, growth_insight
+                FROM pc4_monitoring
+                WHERE mission_id = %s
+                ORDER BY id
+            """, (mission_id,))
+            channels = cur.fetchall()
+
+            if channels:
+                payload = {
+                    "parcel_id": updated_mission["field_id"],
+                    "date": updated_mission["start_time"].strftime("%Y-%m-%d") if updated_mission["start_time"] else "",
+                    "channels": [
+                        {
+                            "channelName": c["channel_name"],
+                            "biomass": c["biomass"],
+                            "fruitQuality": c["fruit_quality"],
+                            "growthInsight": c["growth_insight"]
+                        } for c in channels
+                    ]
+                }
+                # Dispatch the API call without slowing down the HTTP response
+                background_tasks.add_task(push_pc4_monitoring_data, payload)
 
         conn.commit()
     return updated_mission

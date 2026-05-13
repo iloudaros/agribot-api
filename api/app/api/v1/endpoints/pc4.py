@@ -45,7 +45,7 @@ def upload_pc4_monitoring_data(
         
         if not mission:
             raise HTTPException(status_code=404, detail="Mission not found")
-        if mission["mission_type"] != "pc4_monitor":
+        if mission["mission_type"] != "pc4_monitoring":
             raise HTTPException(status_code=400, detail="Data can only be attached to a pc4_monitor mission")
             
         # Optional validation: ensure the JSON parcel_id matches the DB field_id
