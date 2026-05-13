@@ -6,8 +6,7 @@ import sys
 BASE_URL = "http://localhost:8080/api/v1"
 AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
 
-# Note: In your AgroApps example, you used parcel_id 45. 
-# Make sure your seeds-core.sql has a field with id=45 owned by testuser!
+# Note: Make sure your seeds-core.sql has a field with id=45 owned by testuser!
 FIELD_ID = 45 
 
 def get_iso_now():
@@ -53,8 +52,7 @@ def main():
     # -----------------------------------------------------
     print("\n3. Batch Uploading PC3 Telemetry...")
     
-    # Simulating data parsed from: 20250513_121239_N1II_IntelRealSenseD435_SN838212073089.csv
-    # Notice we now include the required 'timestamp_unix' field
+    # Notice we now include 'suggested_fertilization' and 'chosen_fertilization'
     telemetry_payload = {
         "mission_id": mission_id,
         "data": [
@@ -70,7 +68,9 @@ def main():
                 "avg_fol_area_cm2": 603.197958145333,
                 "avg_ndvi": 0.701093289426946,
                 "avg_biomass": 1.0,
-                "avg_fertilization": 0.5
+                "avg_fertilization": 0.5,
+                "suggested_fertilization": 0.65,
+                "chosen_fertilization": 0.60
             },
             {
                 "timestamp_unix": 1747131249.99966,
@@ -84,7 +84,9 @@ def main():
                 "avg_fol_area_cm2": 277.713955864568,
                 "avg_ndvi": 0.701690146235136,
                 "avg_biomass": 1.0,
-                "avg_fertilization": 0.5
+                "avg_fertilization": 0.5,
+                "suggested_fertilization": 0.55,
+                "chosen_fertilization": 0.55
             },
             {
                 "timestamp_unix": 1747131250.99966,
@@ -98,7 +100,9 @@ def main():
                 "avg_fol_area_cm2": 218.152309882628,
                 "avg_ndvi": 0.58218638168167,
                 "avg_biomass": 1.0,
-                "avg_fertilization": 0.5
+                "avg_fertilization": 0.5,
+                "suggested_fertilization": 0.50,
+                "chosen_fertilization": 0.50
             }
         ]
     }
@@ -127,7 +131,11 @@ def main():
     rows = get_resp.json()
     print(f"✓ Retrieved {len(rows)} telemetry rows for Mission {mission_id}:")
     for r in rows:
-         print(f"  - Timestamp: {r.get('timestamp_unix', 'N/A')} | NDVI: {r['avg_ndvi']} | Vol: {r['avg_volume_cm3']}cm3 | Pos: {r['latitude']},{r['longitude']}")
+        print(f"  - Timestamp: {r.get('timestamp_unix', 'N/A')} | "
+              f"NDVI: {r['avg_ndvi']:.2f} | "
+              f"Sug.Fert: {r.get('suggested_fertilization')} | "
+              f"Ch.Fert: {r.get('chosen_fertilization')} | "
+              f"Pos: {r['latitude']},{r['longitude']}")
 
 if __name__ == "__main__":
     try:
