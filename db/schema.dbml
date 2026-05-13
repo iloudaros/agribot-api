@@ -126,6 +126,7 @@ Table pc2_ecorobotix
 Table pc2_dti {
   mission_id int [pk, ref: > missions.id]
   photo_uri varchar
+  created_at timestamptz [not null, default: `now()`]
 }
 
 TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy vegetables in open field conditions" [color: #A934C1]{
@@ -148,17 +149,23 @@ Table pc3_inspections
   avg_ndvi float
   avg_biomass float
   avg_fertilization float
+  suggested_fertilization float  
+  chosen_fertilization float 
 }
-
 
 
 
 TableGroup "Pilot Case 4 (POLIBA): Robotic technologies for crop monitoring and management in soilless tomato cultivation" [color: #050505] {
-  pc4_pending
+  pc4_monitoring
 }
 
-Table pc4_pending {
-  pending int
+Table pc4_monitoring {
+  id int [pk, increment]
+  mission_id int [not null, ref: > missions.id]
+  channel_name varchar
+  biomass float
+  fruit_quality float
+  growth_insight float
 }
 
 TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" [color: #050505] {

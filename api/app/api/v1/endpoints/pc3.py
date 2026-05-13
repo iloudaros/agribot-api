@@ -51,7 +51,7 @@ def create_pc3_inspections_batch(
             INSERT INTO pc3_inspections (
                 mission_id, timestamp_unix, location, biomass, altitude_m, avg_dim_x_cm, 
                 avg_dim_y_cm, avg_dim_z_cm, avg_volume_cm3, avg_fol_area_cm2, 
-                avg_ndvi, avg_biomass, avg_fertilization
+                avg_ndvi, avg_biomass, avg_fertilization, suggested_fertilization, chosen_fertilization
             ) VALUES %s
         """
         
@@ -65,7 +65,8 @@ def create_pc3_inspections_batch(
                 item.longitude, item.latitude, 
                 item.biomass, item.altitude_m, item.avg_dim_x_cm,
                 item.avg_dim_y_cm, item.avg_dim_z_cm, item.avg_volume_cm3,
-                item.avg_fol_area_cm2, item.avg_ndvi, item.avg_biomass, item.avg_fertilization
+                item.avg_fol_area_cm2, item.avg_ndvi, item.avg_biomass, item.avg_fertilization,
+                item.suggested_fertilization, item.chosen_fertilization
             )
             for item in batch.data
         ]
@@ -97,7 +98,8 @@ def get_pc3_inspections(
                 id, mission_id, timestamp_unix,
                 ST_Y(location) AS latitude, ST_X(location) AS longitude,
                 biomass, altitude_m, avg_dim_x_cm, avg_dim_y_cm, avg_dim_z_cm, 
-                avg_volume_cm3, avg_fol_area_cm2, avg_ndvi, avg_biomass, avg_fertilization
+                avg_volume_cm3, avg_fol_area_cm2, avg_ndvi, avg_biomass, avg_fertilization,
+                suggested_fertilization, chosen_fertilization
             FROM pc3_inspections 
             WHERE mission_id = %s
             ORDER BY id
@@ -105,4 +107,5 @@ def get_pc3_inspections(
             (mission_id,)
         )
         return cur.fetchall()
+
 

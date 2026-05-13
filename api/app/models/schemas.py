@@ -227,6 +227,9 @@ class PC3InspectionItem(BaseModel):
     avg_ndvi: Optional[float] = None
     avg_biomass: Optional[float] = None
     avg_fertilization: Optional[float] = None
+    suggested_fertilization: Optional[float] = None 
+    chosen_fertilization: Optional[float] = None     
+
 
 
 class PC3InspectionBatch(BaseModel):

@@ -120,7 +120,9 @@ def update_mission(
                             "avgFolAreaCm2": m["avg_fol_area_cm2"],
                             "avgNdvi": m["avg_ndvi"],
                             "avgBiomass": m["avg_biomass"],
-                            "avgFertilization": m["avg_fertilization"]
+                            "avgFertilization": m["avg_fertilization"],
+                            "suggestedFertilization": m["suggested_fertilization"],
+                            "chosenFertilization": m["chosen_fertilization"] 
                         } for m in measurements
                     ]
                 }
