@@ -110,17 +110,22 @@ Table pc1_missions {
 
 
 
-TableGroup "Pilot Case 2 (Ecorobotix): Robotic spraying of weeds in potato and volunteer potatoes" [color: #D95B16]{
-  pc2_missions
-
+TableGroup "Pilot Case 2 (DTI, Ecorobotix): Robotic spraying of weeds in potato and volunteer potatoes" [color: #D95B16]{
+  pc2_ecorobotix
+  pc2_dti
 }
 
 
-Table pc2_missions
+Table pc2_ecorobotix
 {
   mission_id int [pk, ref: > missions.id]
   geojson_uri varchar
   geotiff_uri varchar
+}
+
+Table pc2_dti {
+  mission_id int [pk, ref: > missions.id]
+  photo_uri varchar
 }
 
 TableGroup "Pilot Case 3 (POLIBA): Robotic fertilization management for leafy vegetables in open field conditions" [color: #A934C1]{

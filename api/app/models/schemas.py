@@ -167,25 +167,46 @@ class PC1ImageUploadRequest(BaseModel):
 ###############
 # PC2 Schemas #
 ###############
-class PC2GeoJSONUploadRequest(BaseModel):
+
+# -- Ecorobotix --
+class PC2EcoGeoJSONUploadRequest(BaseModel):
     mission_id: int
     filename: str = "mission.geojson"
 
-class PC2GeoTIFFUploadRequest(BaseModel):
+class PC2EcoGeoTIFFUploadRequest(BaseModel):
     mission_id: int
     filename: str = "map.tif"
 
-class PC2MissionConfirm(BaseModel):
+class PC2EcoConfirmGeoJSON(BaseModel):
     geojson_uri: str
 
-class PC2GeoTIFFConfirm(BaseModel):
+class PC2EcoConfirmGeoTIFF(BaseModel):
     geotiff_uri: str
 
-class PC2Mission(BaseModel):
+class PC2EcorobotixMission(BaseModel):
     mission_id: int
     geojson_uri: Optional[str] = None
     geotiff_uri: Optional[str] = None
 
+
+# -- DTI Drones --
+class PC2DTIPhotoUploadRequest(BaseModel):
+    mission_id: int
+    filename: str = "drone_photo.jpg"
+
+class PC2DTIPhotoConfirm(BaseModel):
+    photo_uri: str
+
+class PC2DTIPhotoResponse(BaseModel):
+    mission_id: int
+    photo_uri: str
+    created_at: datetime
+
+class PC2DTILatestPhotoResponse(BaseModel):
+    mission_id: int
+    field_id: int
+    photo_url: str
+    created_at: datetime
 
 
 

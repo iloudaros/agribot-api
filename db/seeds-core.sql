@@ -2,7 +2,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 TRUNCATE TABLE
     pc3_inspections,
-    pc2_missions,
+    pc2_ecorobotix,
+    pc2_dti,
     pc1_weed,
     pc1_missions,      -- Added new PC1 status table
     missions,
@@ -98,6 +99,7 @@ INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES
     ('pc1_inspection_and_spraying', 'PC1', 'AUA', 'Inspection and spraying mission for weed identification'),
     ('pc2_spraying', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
+    ('pc2_inspection', 'PC2', 'DTI', 'Inspection mission with image data from a drone'),
     ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements');
 
 
