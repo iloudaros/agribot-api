@@ -100,7 +100,8 @@ VALUES
     ('pc1_inspection_and_spraying', 'PC1', 'AUA', 'Inspection and spraying mission for weed identification'),
     ('pc2_spraying', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
     ('pc2_inspection', 'PC2', 'DTI', 'Inspection mission with image data from a drone'),
-    ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements');
+    ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements'),
+    ('pc4_monitoring', 'PC4', 'POLIBA', 'Robotic technologies for crop monitoring and management in soilless tomato cultivation');
 
 
 -- Sync the sequences so the next auto-generated IDs start AFTER our seeded data

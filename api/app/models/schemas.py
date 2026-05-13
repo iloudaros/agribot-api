@@ -232,3 +232,19 @@ class PC3InspectionItem(BaseModel):
 class PC3InspectionBatch(BaseModel):
     mission_id: int
     data: List[PC3InspectionItem]
+
+
+
+###############
+# PC4 Schemas #
+###############
+class PC4ChannelData(BaseModel):
+    channelName: str
+    biomass: float
+    fruitQuality: float
+    growthInsight: float
+
+class PC4MonitoringPayload(BaseModel):
+    parcel_id: Optional[int] = None
+    date: Optional[str] = None
+    channels: List[PC4ChannelData]

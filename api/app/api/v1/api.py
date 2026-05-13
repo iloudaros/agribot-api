@@ -44,11 +44,11 @@ api_router.include_router(
     tags=["PC3: Open Field Monitoring"],
 )
 
-# api_router.include_router(
-#     pc4.router,
-#     prefix="/pc4",
-#     tags=["PC4: ..."],
-# )
+api_router.include_router(
+    pc4.router,
+    prefix="/pc4",
+    tags=["PC4: Soilless Tomato Cultivation"],
+)
 
 
 # api_router.include_router(
