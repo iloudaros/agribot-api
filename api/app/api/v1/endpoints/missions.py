@@ -149,10 +149,10 @@ def update_mission(
                     "date": updated_mission["start_time"].strftime("%Y-%m-%d") if updated_mission["start_time"] else "",
                     "channels": [
                         {
-                            "channelName": c["channel_name"],
+                            "channel_name": c["channel_name"],
                             "biomass": c["biomass"],
-                            "fruitQuality": c["fruit_quality"],
-                            "growthInsight": c["growth_insight"]
+                            "fruit_quality": c["fruit_quality"],
+                            "growth_insight": c["growth_insight"]
                         } for c in channels
                     ]
                 }

@@ -7,6 +7,14 @@ import requests
 import logging
 
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        "%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 import app.api.forward.credentials as credentials
 
@@ -38,6 +46,6 @@ def push_pc4_monitoring_data(payload: dict):
         resp.raise_for_status()
         logger.info(f"✓ AgroApps PC4 Monitoring Push Success: {resp.status_code}")
     except requests.exceptions.RequestException as e:
-        logger.error(f"❌ AgroApps PC4 Monitoring Push Failed: {e}")
+        logger.error(f"❌ AgroApps PC4 Monitoring Push Failed: {e} \n Payload: {payload}")
         if e.response is not None:
             logger.error(f"Response: {e.response.text}")
