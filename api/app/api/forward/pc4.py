@@ -34,8 +34,7 @@ def push_pc4_monitoring_data(payload: dict):
     
     try:
         logger.info(f"Pushing PC4 Monitoring Data to AgroApps for parcel {payload.get('parcel_id')}...")
-        # Pointing to a generic '/monitoring' endpoint. Adjust if AgroApps specified a different path.
-        resp = requests.post(f"{BASE_URL}/monitoring", data=body, headers=headers, timeout=10)
+        resp = requests.post(f"{BASE_URL}/external-crop-monitoring", data=body, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"✓ AgroApps PC4 Monitoring Push Success: {resp.status_code}")
     except requests.exceptions.RequestException as e:
