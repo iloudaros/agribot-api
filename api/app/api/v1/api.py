@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, core, missions, pc1, pc2, pc3, pc4 #, pc5, pc6
+from app.api.v1.endpoints import auth, core, missions, pc1, pc2, pc3, pc4, pc5, pc6
 
 api_router = APIRouter()
 
@@ -50,15 +50,14 @@ api_router.include_router(
     tags=["PC4: Soilless Tomato Cultivation"],
 )
 
+api_router.include_router(
+    pc5.router,
+    prefix="/pc5",
+    tags=["PC5: Orchards"],
+)
 
-# api_router.include_router(
-#     pc5.router,
-#     prefix="/pc5",
-#     tags=["PC5: Orchards"],
-# )
-
-# api_router.include_router(
-#     pc6.router,
-#     prefix="/pc6",
-#     tags=["PC6: Orchards"],
-# )
+api_router.include_router(
+    pc6.router,
+    prefix="/pc6",
+    tags=["PC6: Orchards"],
+)

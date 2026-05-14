@@ -168,19 +168,80 @@ Table pc4_monitoring {
   growth_insight float
 }
 
-TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" [color: #050505] {
-  pc5_pending
+TableGroup "Pilot Case 5 (KUL): Robotic harvesting in orchards" [color: #00be90] {
+  pc5_trees
+  pc5_harvests
+  pc5_apples
 }
 
-Table pc5_pending {
-  pending int
+Table pc5_trees {
+  id int [pk, increment]
+  field_id int [ref: > fields.id]
+  tree_identifier varchar
+  variety varchar
+  rootstock varchar
+  planting_date int
+  grid_row int
+  grid_col int
+  location geometry [note: 'Postgis Point']
+  elevation float
+
+  indexes {
+    (field_id, tree_identifier) [unique]
+  }
+}
+
+Table pc5_harvests {
+  id int [pk, increment]
+  mission_id int [ref: > missions.id]
+  tree_id int [ref: > pc5_trees.id]
+  record_type varchar [note: 'inspection or application']
+  fruit_count int
+}
+
+Table pc5_apples {
+  id int [pk, increment]
+  harvest_id int [ref: > pc5_harvests.id]
+  apple_id varchar
+  size_class varchar
+  overcolor_class varchar
+  picture_id varchar
+  class_id int
+  bbox_x float
+  bbox_y float
+  bbox_width float
+  bbox_height float
+  confidence float
 }
 
 
 TableGroup "Pilot Case 6 (KUL): Robotic pruning and thinning with XR in orchards" [color: #050505] {
-  pc6_pending
+  pc6_operations
+  pc6_branches
 }
 
-Table pc6_pending {
-  pending int
+Table pc6_operations {
+  id int [pk, increment]
+  mission_id int [ref: > missions.id]
+  tree_id int [ref: > pc5_trees.id]
+  operation_type varchar [note: 'thinning or pruning']
+  record_type varchar [note: 'inspection or application']
+  branches_to_cut_count int
+  branches_cut_count int
+}
+
+Table pc6_branches {
+  id int [pk, increment]
+  operation_id int [ref: > pc6_operations.id]
+  branch_id varchar
+  age_years int
+  length_m float
+  diameter_cm float
+  picture_id varchar
+  class_id int
+  bbox_x float
+  bbox_y float
+  bbox_width float
+  bbox_height float
+  confidence float
 }

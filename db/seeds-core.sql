@@ -98,10 +98,13 @@ VALUES
 INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES
     ('pc1_inspection_and_spraying', 'PC1', 'AUA', 'Inspection and spraying mission for weed identification'),
-    ('pc2_spraying', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
-    ('pc2_inspection', 'PC2', 'DTI', 'Inspection mission with image data from a drone'),
+    ('pc2_ecorobotix', 'PC2', 'Ecorobotix', 'Robotic spraying mission with application metadata'),
+    ('pc2_dti', 'PC2', 'DTI', 'Inspection mission with image data from a drone'),
     ('pc3_inspection', 'PC3', 'POLIBA', 'Crop inspection mission with biomass and NDVI measurements'),
-    ('pc4_monitoring', 'PC4', 'POLIBA', 'Robotic technologies for crop monitoring and management in soilless tomato cultivation');
+    ('pc4_monitoring', 'PC4', 'POLIBA', 'Robotic technologies for crop monitoring and management in soilless tomato cultivation'),
+    ('pc5_harvest', 'PC5', 'POLIBA', 'Robotic harvesting in orchards'),
+    ('pc6_pruning', 'PC6', 'POLIBA', 'Robotic pruning with XR in orchards'),
+    ('pc6_thinning', 'PC6', 'POLIBA', 'Robotic thinning with XR in orchards');
 
 
 -- Sync the sequences so the next auto-generated IDs start AFTER our seeded data

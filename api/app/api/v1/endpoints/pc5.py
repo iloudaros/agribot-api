@@ -1,126 +1,118 @@
-import uuid
-from datetime import timedelta, datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from psycopg2.extras import RealDictCursor, execute_values
+
 from app.core.db import get_db_conn
-from app.models.schemas import TreeCreate, ImageUploadRequest, ImageDetection
-from app.security import get_current_active_user, UserInDB
+from app.models.schemas import PC5Payload
+from app.security import UserInDB, get_current_active_user
+from app.api.forward.pc5 import push_pc5_data
 
 router = APIRouter()
 
-@router.post("/trees", status_code=201)
-def register_tree(
-    tree: TreeCreate, 
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user)
-):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
-            INSERT INTO uc5_uc6_trees (field_id, tree_identifier, variety, planting_date, latitude, longitude)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, tree_identifier;
-        """, (
-            tree.field_id, tree.tree_identifier, tree.variety, 
-            tree.planting_date, tree.latitude, tree.longitude
-        ))
-        new_tree = cur.fetchone()
-        conn.commit()
-    return new_tree
-
-# --- MinIO Integration ---
-
-@router.post("/images/presigned-url")
-def get_upload_url(
-    req: ImageUploadRequest, 
-    request: Request,
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user)
-):
-    """
-    Generates a secure, temporary URL to upload directly to MinIO.
-    """
-    minio_client = request.app.state.minio_client
-    bucket_name = "agribot-mission-images"
-    
-    # Ensure bucket exists
-    if not minio_client.bucket_exists(bucket_name):
-        minio_client.make_bucket(bucket_name)
-
-    # Generate hierarchical path: trees/{tree_id}/{uuid}.jpg
-    file_ext = req.filename.split('.')[-1]
-    unique_name = f"{uuid.uuid4()}.{file_ext}"
-    object_name = f"trees/{req.tree_id}/{unique_name}"
-
-    try:
-        url = minio_client.get_presigned_url(
-            "PUT",
-            bucket_name,
-            object_name,
-            expires=timedelta(minutes=10),
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
-
-    return {
-        "upload_url": url,
-        "bucket": bucket_name,
-        "object_key": object_name
-    }
-
-@router.post("/images/confirm", status_code=201)
-def confirm_upload(
-    tree_id: int,
-    bucket: str,
-    object_key: str,
-    camera_type: str = "rgb",
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user)
-):
-    """
-    Save metadata to Postgres after successful MinIO upload.
-    Returns the new image_id needed for attaching detections.
-    """
-    image_url = f"minio://{bucket}/{object_key}"
-    
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO uc5_uc6_images (tree_id, timestamp, image_url, camera_type)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id;
-        """, (tree_id, datetime.now(), image_url, camera_type))
-        image_id = cur.fetchone()[0]
-        conn.commit()
-    
-    return {"image_id": image_id, "status": "confirmed"}
-
-# --- Computer Vision Results ---
-
-@router.post("/images/{image_id}/detections")
-def upload_detections(
-    image_id: int,
-    detections: List[ImageDetection],
-    conn=Depends(get_db_conn),
-    user: UserInDB = Depends(get_current_active_user)
-):
-    if not detections:
-        return {"message": "No detections"}
-
-    data_tuples = [
-        (
-            image_id, str(uuid.uuid4()), d.class_name, d.confidence,
-            d.x, d.y, d.width, d.height
-        )
-        for d in detections
-    ]
-
-    with conn.cursor() as cur:
-        query = """
-            INSERT INTO uc5_uc6_detections 
-            (image_id, detection_uuid, class_name, confidence, bbox_x, bbox_y, bbox_w, bbox_h)
-            VALUES %s
+def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
+    if user.role == "admin":
+        return
+    cur.execute(
         """
-        execute_values(cur, query, data_tuples)
+        SELECT 1 FROM field_ownerships
+        WHERE field_id = %s AND user_id = %s
+        """,
+        (field_id, user.id),
+    )
+    if cur.fetchone() is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this field",
+        )
+
+def _process_pc5_payload(mission_id: int, payload: PC5Payload, record_type: str, background_tasks: BackgroundTasks, conn, user: UserInDB):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Verify Mission and Access
+        cur.execute("SELECT field_id FROM missions WHERE id = %s", (mission_id,))
+        mission = cur.fetchone()
+        if not mission:
+            raise HTTPException(status_code=404, detail="Mission not found")
+        
+        field_id = mission["field_id"]
+        _ensure_field_access(cur, field_id, user)
+        
+        for tree in payload.trees:
+            meta = tree.tree_metadata
+            grid = tree.location.grid if tree.location and tree.location.grid else None
+            geo = tree.location.geolocation if tree.location and tree.location.geolocation else None
+
+            # 1. Upsert the Tree Record (keeps orchards synced across multiple missions)
+            cur.execute("""
+                INSERT INTO pc5_trees (field_id, tree_identifier, variety, rootstock, planting_date, grid_row, grid_col, elevation, location)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CASE WHEN %s::float IS NOT NULL THEN ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326) ELSE NULL END)
+                ON CONFLICT (field_id, tree_identifier) DO UPDATE SET
+                    variety = EXCLUDED.variety,
+                    rootstock = EXCLUDED.rootstock,
+                    planting_date = EXCLUDED.planting_date,
+                    grid_row = EXCLUDED.grid_row,
+                    grid_col = EXCLUDED.grid_col,
+                    elevation = EXCLUDED.elevation,
+                    location = EXCLUDED.location
+                RETURNING id
+            """, (
+                field_id, meta.TreeID, meta.Variety, meta.Rootstock, meta.PlantingDate, 
+                grid.row if grid else None, grid.col if grid else None, geo.elevation if geo else None, 
+                geo.lon if geo else None, geo.lon if geo else None, geo.lat if geo else None
+            ))
+            tree_db_id = cur.fetchone()["id"]
+
+            # 2. Insert the Harvest Event
+            cur.execute("""
+                INSERT INTO pc5_harvests (mission_id, tree_id, record_type, fruit_count)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            """, (mission_id, tree_db_id, record_type, tree.harvest_data.FruitCount))
+            harvest_id = cur.fetchone()["id"]
+
+            # 3. Batch Insert all Apple Detections
+            if tree.harvest_data.apples:
+                apples_tuples = [
+                    (
+                        harvest_id, apple.AppleID, apple.SizeClass, apple.OvercolorClass,
+                        apple.yolo_detection.picture_id, apple.yolo_detection.class_id,
+                        apple.yolo_detection.x, apple.yolo_detection.y,
+                        apple.yolo_detection.width, apple.yolo_detection.height,
+                        apple.yolo_detection.confidence
+                    )
+                    for apple in tree.harvest_data.apples
+                ]
+                
+                execute_values(cur, """
+                    INSERT INTO pc5_apples (
+                        harvest_id, apple_id, size_class, overcolor_class, 
+                        picture_id, class_id, bbox_x, bbox_y, bbox_width, bbox_height, confidence
+                    ) VALUES %s
+                """, apples_tuples)
+        
         conn.commit()
 
-    return {"message": f"Saved {len(detections)} detections for image {image_id}"}
+    # Dispatch to Webhook exactly as received (using Pydantic's alias dump)
+    dict_payload = payload.model_dump(by_alias=True)
+    background_tasks.add_task(push_pc5_data, mission_id, field_id, dict_payload, record_type)
+
+    return {"status": "success", "message": f"Processed {len(payload.trees)} trees for {record_type}"}
+
+@router.post("/missions/{mission_id}/inspection")
+def submit_pc5_inspection(
+    mission_id: int,
+    payload: PC5Payload,
+    background_tasks: BackgroundTasks,
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user)
+):
+    return _process_pc5_payload(mission_id, payload, "inspection", background_tasks, conn, user)
+
+@router.post("/missions/{mission_id}/application")
+def submit_pc5_application(
+    mission_id: int,
+    payload: PC5Payload,
+    background_tasks: BackgroundTasks,
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user)
+):
+    return _process_pc5_payload(mission_id, payload, "application", background_tasks, conn, user)

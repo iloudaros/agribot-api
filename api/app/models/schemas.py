@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Any, List, Literal, Optional
-
-from pydantic import BaseModel, Field as PydanticField
+from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 
 MissionStatus = Literal["ongoing", "complete", "canceled", "aborted"]
@@ -251,3 +250,109 @@ class PC4MonitoringPayload(BaseModel):
     parcel_id: Optional[int] = None
     date: Optional[str] = None
     channels: List[PC4ChannelData]
+
+
+
+
+###############
+# PC5 Schemas #
+###############
+
+class PC5Context(BaseModel):
+    PO: Optional[str] = None
+    AGRO: Optional[str] = None
+    PATO: Optional[str] = None
+    CO_370: Optional[str] = None
+    TreeID: Optional[str] = None
+    Variety: Optional[str] = None
+    Rootstock: Optional[str] = None
+    PlantingDate: Optional[str] = None
+    FruitCount: Optional[str] = None
+
+class PC5TreeMetadata(BaseModel):
+    TreeID: str
+    Variety: Optional[str] = None
+    Rootstock: Optional[str] = None
+    PlantingDate: Optional[int] = None
+
+class PC5Grid(BaseModel):
+    row: Optional[int] = PydanticField(None, alias="AGRO:00000155")
+    col: Optional[int] = PydanticField(None, alias="PATO:0000140")
+    model_config = ConfigDict(populate_by_name=True)
+
+class PC5Geolocation(BaseModel):
+    lat: Optional[float] = PydanticField(None, alias="AGRO:00000574")
+    lon: Optional[float] = PydanticField(None, alias="AGRO:00000575")
+    elevation: Optional[float] = PydanticField(None, alias="AGRO:00000612")
+    model_config = ConfigDict(populate_by_name=True)
+
+class PC5Location(BaseModel):
+    grid: Optional[PC5Grid] = None
+    geolocation: Optional[PC5Geolocation] = None
+
+class PC5YoloDetection(BaseModel):
+    picture_id: str
+    class_id: int
+    x: float
+    y: float
+    width: float
+    height: float
+    confidence: float
+
+class PC5Apple(BaseModel):
+    AppleID: str
+    SizeClass: Optional[str] = None
+    OvercolorClass: Optional[str] = None
+    yolo_detection: PC5YoloDetection
+
+class PC5HarvestData(BaseModel):
+    FruitCount: int
+    apples: List[PC5Apple] = []
+
+class PC5Tree(BaseModel):
+    tree_metadata: PC5TreeMetadata
+    location: Optional[PC5Location] = None
+    harvest_data: PC5HarvestData
+
+class PC5Payload(BaseModel):
+    context: Optional[PC5Context] = PydanticField(None, alias="@context")
+    trees: List[PC5Tree]
+    model_config = ConfigDict(populate_by_name=True)
+
+
+
+###############
+# PC6 Schemas #
+###############
+
+class PC6YoloDetection(BaseModel):
+    picture_id: str
+    class_id: int
+    x: float
+    y: float
+    width: float
+    height: float
+    confidence: float
+
+class PC6Branch(BaseModel):
+    BranchID: str
+    Age_years: Optional[int] = None
+    Length_m: Optional[float] = None
+    Diameter_cm: Optional[float] = None
+    yolo_detection: PC6YoloDetection
+
+class PC6OperationData(BaseModel):
+    BranchesToCutCount: Optional[int] = None
+    BranchesCutCount: Optional[int] = None
+    branches: List[PC6Branch] = []
+
+class PC6Tree(BaseModel):
+    tree_metadata: PC5TreeMetadata
+    location: Optional[PC5Location] = None
+    thinning_data: Optional[PC6OperationData] = None
+    pruning_data: Optional[PC6OperationData] = None
+
+class PC6Payload(BaseModel):
+    context: Optional[dict] = PydanticField(default=None, alias="@context")
+    trees: List[PC6Tree]
+    model_config = ConfigDict(populate_by_name=True)
