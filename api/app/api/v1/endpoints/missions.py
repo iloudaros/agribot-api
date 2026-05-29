@@ -150,7 +150,7 @@ def update_mission(
                             "channel_name": c["channel_name"],
                             "biomass": c["biomass"],
                             "fruit_quality": c["fruit_quality"],
-                            "growth_insight": c["growth_insight"]
+                            "growth_insights": c["growth_insight"]
                         } for c in channels
                     ]
                 }
