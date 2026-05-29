@@ -4,3 +4,4 @@ api/app/api/forward/credentials.py
 *__pycache__
 .vscode/settings.json
 api/app/api/forward/examples/*
+docs/examples/Connector/api_url.py

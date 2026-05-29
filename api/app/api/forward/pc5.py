@@ -32,7 +32,7 @@ def push_pc5_data(mission_id: int, field_id: int, payload: dict, record_type: st
     body = json.dumps(payload, separators=(',', ':'))
     headers = make_headers(body)
     
-    endpoint = f"{BASE_URL}/pc5/{record_type}"
+    endpoint = f"{BASE_URL}/robot-tree-mapping"
 
     try:
         logger.info(f"Pushing PC5 {record_type.capitalize()} to AgroApps for mission {mission_id}...")

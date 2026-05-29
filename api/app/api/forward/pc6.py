@@ -32,8 +32,12 @@ def push_pc6_data(mission_id: int, payload: dict, operation_type: str, record_ty
     body = json.dumps(payload, separators=(',', ':'))
     headers = make_headers(body)
     
-    # E.g. /pc6/thinning/inspection
-    endpoint = f"{BASE_URL}/pc6/{operation_type}/{record_type}"
+    if record_type == "inspection":
+        agroapps_record_type = "candidate"
+    elif record_type == "application":
+        agroapps_record_type = "applications"
+
+    endpoint = f"{BASE_URL}/{operation_type}-{agroapps_record_type}"
 
     try:
         logger.info(f"Pushing PC6 {operation_type.capitalize()} {record_type.capitalize()} to AgroApps for mission {mission_id}...")
