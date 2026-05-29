@@ -1,9 +1,10 @@
 import requests
 import datetime
 import sys
+import api_url 
 
 # Configuration
-BASE_URL = "http://localhost:8080/api/v1"
+BASE_URL = api_url.BASE_URL
 AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
 
 # Note: Make sure your seeds-core.sql has a field with id=45 owned by testuser!

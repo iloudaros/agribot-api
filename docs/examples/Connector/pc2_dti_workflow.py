@@ -2,11 +2,12 @@ import requests
 import datetime
 import os
 import sys
+import api_url 
 
 # Configuration
-BASE_URL = "http://localhost:8080/api/v1"
+BASE_URL = api_url.BASE_URL
 AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
-FIELD_ID = 44 
+FIELD_ID = 63 
 
 def get_iso_now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -34,7 +35,7 @@ def main():
     print("\n2. Creating Base Mission...")
     mission_resp = requests.post(f"{BASE_URL}/missions", json={
         "field_id": FIELD_ID,
-        "mission_type": "pc2_inspection", 
+        "mission_type": "pc2_dti", 
         "start_time": get_iso_now()
     }, headers=headers)
     mission_resp.raise_for_status()

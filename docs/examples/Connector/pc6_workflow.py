@@ -3,13 +3,13 @@ import datetime
 import time
 import sys
 import copy
+import api_url 
 
 # Configuration
-BASE_URL = "http://147.102.37.125:30080/api/v1"
+BASE_URL = api_url.BASE_URL
 AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
 
-# Assuming field 44 (from your seeds-core.sql) or your designated orchard field ID
-FIELD_ID = 44 
+FIELD_ID = 48
 
 def get_iso_now():
     """Helper to get current time in ISO 8601 format with UTC timezone."""

@@ -2,9 +2,10 @@ import requests
 import datetime
 import time
 import sys
+import api_url 
 
 # Configuration
-BASE_URL = "http://localhost:8080/api/v1"
+BASE_URL = api_url.BASE_URL
 AUTH_DATA = {"username": "testuser@agribot.local", "password": "testpassword"}
 
 def get_iso_now():
