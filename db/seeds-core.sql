@@ -86,6 +86,38 @@ VALUES
             4326
         ),
         NOW()
+    ),
+    (
+        48,
+        'Field 48 - Demo',
+        'Apples',
+        ST_GeomFromText(
+            'POLYGON((
+                7.136902 46.959334,
+                7.140545 46.959334,
+                7.140545 46.962160,
+                7.136902 46.962160,
+                7.136902 46.959334
+            ))',
+            4326
+        ),
+        NOW()
+    ),
+    (
+        63,
+        'Field 63 - Demo',
+        'Potatoes',
+        ST_GeomFromText(
+            'POLYGON((
+                7.136902 46.959334,
+                7.140545 46.959334,
+                7.140545 46.962160,
+                7.136902 46.962160,
+                7.136902 46.959334
+            ))',
+            4326
+        ),
+        NOW()   
     );
 
 -- Replaced farm_ownerships with field_ownerships
@@ -93,7 +125,9 @@ INSERT INTO field_ownerships (field_id, user_id, ownership_percentage)
 VALUES
     (44, 2, 60.00),
     (45, 2, 100.00),
-    (44, 3, 40.00);
+    (44, 3, 40.00),
+    (48, 2, 100.00),
+    (63, 2, 100.00);
 
 INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES

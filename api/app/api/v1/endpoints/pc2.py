@@ -84,7 +84,7 @@ def get_pc2_eco_geojson_upload_url(
     user: UserInDB = Depends(get_current_active_user),
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id FROM missions WHERE id = %s AND mission_type = 'pc2_spraying'", (req.mission_id,))
+        cur.execute("SELECT field_id FROM missions WHERE id = %s AND mission_type = 'pc2_ecorobotix'", (req.mission_id,))
         mission = cur.fetchone()
         if not mission:
             raise HTTPException(status_code=404, detail="Ecorobotix mission not found")
@@ -117,7 +117,7 @@ def confirm_pc2_eco_geojson(
         cur.execute("""
             INSERT INTO pc2_ecorobotix (mission_id, geojson_uri) VALUES (%s, %s)
             ON CONFLICT (mission_id) DO UPDATE SET geojson_uri = EXCLUDED.geojson_uri
-            RETURNING mission_id, geojson_uri, geotiff_uri
+            RETURNING mission_id, geojson_uri
         """, (mission_id, payload.geojson_uri))
         saved_record = cur.fetchone()
         conn.commit()
@@ -127,8 +127,9 @@ def confirm_pc2_eco_geojson(
         "parcel_id": mission["field_id"],
         "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else ""
     }
-    if saved_record.get("geojson_uri"): agroapps_payload["geojson_path"] = f"{base_url}/api/v1/pc2/ecorobotix/missions/{mission_id}/geojson"
-    if saved_record.get("geotiff_uri"): agroapps_payload["geotiff_path"] = f"{base_url}/api/v1/pc2/ecorobotix/missions/{mission_id}/geotiff"
+    if saved_record.get("geojson_uri"): 
+        agroapps_payload["geojson_path"] = f"{base_url}/api/v1/pc2/ecorobotix/missions/{mission_id}/geojson"
+        
     background_tasks.add_task(push_pc2_spraying_data, agroapps_payload)
 
     return saved_record
@@ -152,67 +153,6 @@ def download_pc2_eco_geojson(mission_id: int, request: Request, conn=Depends(get
             finally:
                 minio_response.close(); minio_response.release_conn()
         return StreamingResponse(iterfile(), media_type="application/geo+json", headers={"Content-Disposition": f'attachment; filename="mission_{mission_id}.geojson"'})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
-
-@router.post("/ecorobotix/geotiff/presigned-url")
-def get_pc2_eco_geotiff_upload_url(req: PC2EcoGeoTIFFUploadRequest, request: Request, conn=Depends(get_db_conn), user: UserInDB = Depends(get_current_active_user)):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id FROM missions WHERE id = %s", (req.mission_id,))
-        mission = cur.fetchone()
-        if not mission: raise HTTPException(status_code=404, detail="Mission not found")
-        _ensure_field_access(cur, mission["field_id"], user)
-
-    minio_public_client = request.app.state.minio_public_client
-    bucket_name = "agribot-mission-images"
-    object_name = f"pc2_ecorobotix/mission_{req.mission_id}/{uuid.uuid4()}.tif"
-
-    upload_url = minio_public_client.get_presigned_url("PUT", bucket_name, object_name, expires=timedelta(minutes=10))
-    return { "upload_url": upload_url, "bucket": bucket_name, "object_key": object_name, "geotiff_uri": f"minio://{bucket_name}/{object_name}" }
-
-@router.post("/ecorobotix/missions/{mission_id}/geotiff/confirm", response_model=PC2EcorobotixMission)
-def confirm_pc2_eco_geotiff(mission_id: int, payload: PC2EcoConfirmGeoTIFF, background_tasks: BackgroundTasks, request: Request, conn=Depends(get_db_conn), user: UserInDB = Depends(get_current_active_user)):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id, start_time FROM missions WHERE id = %s", (mission_id,))
-        mission = cur.fetchone()
-        if not mission: raise HTTPException(status_code=404, detail="Mission not found")
-        _ensure_field_access(cur, mission["field_id"], user)
-
-        cur.execute("""
-            INSERT INTO pc2_ecorobotix (mission_id, geotiff_uri) VALUES (%s, %s)
-            ON CONFLICT (mission_id) DO UPDATE SET geotiff_uri = EXCLUDED.geotiff_uri
-            RETURNING mission_id, geojson_uri, geotiff_uri
-        """, (mission_id, payload.geotiff_uri))
-        saved_record = cur.fetchone()
-        conn.commit()
-
-    base_url = str(request.base_url).rstrip("/")
-    agroapps_payload = { "parcel_id": mission["field_id"], "date": mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else "" }
-    if saved_record.get("geojson_uri"): agroapps_payload["geojson_path"] = f"{base_url}/api/v1/pc2/ecorobotix/missions/{mission_id}/geojson"
-    if saved_record.get("geotiff_uri"): agroapps_payload["geotiff_path"] = f"{base_url}/api/v1/pc2/ecorobotix/missions/{mission_id}/geotiff"
-    background_tasks.add_task(push_pc2_spraying_data, agroapps_payload)
-
-    return saved_record
-
-@router.get("/ecorobotix/missions/{mission_id}/geotiff")
-def download_pc2_eco_geotiff(mission_id: int, request: Request, conn=Depends(get_db_conn), user: UserInDB = Depends(get_current_active_user)):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT p.geotiff_uri, m.field_id FROM pc2_ecorobotix p JOIN missions m ON m.id = p.mission_id WHERE p.mission_id = %s", (mission_id,))
-        row = cur.fetchone()
-        if not row or not row["geotiff_uri"]: raise HTTPException(status_code=404, detail="GeoTIFF not found")
-        _ensure_field_access(cur, row["field_id"], user)
-
-    bucket_name, object_key = _parse_minio_uri(row["geotiff_uri"])
-    minio_internal_client = request.app.state.minio_internal_client
-
-    try:
-        minio_response = minio_internal_client.get_object(bucket_name, object_key)
-        def iterfile():
-            try:
-                for chunk in minio_response.stream(32 * 1024): yield chunk
-            finally:
-                minio_response.close(); minio_response.release_conn()
-        return StreamingResponse(iterfile(), media_type="image/tiff", headers={"Content-Disposition": f'attachment; filename="mission_{mission_id}_map.tif"'})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
 

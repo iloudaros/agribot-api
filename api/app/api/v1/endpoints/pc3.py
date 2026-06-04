@@ -56,7 +56,7 @@ def create_pc3_inspections_batch(
         """
         
         # ST_MakePoint takes (longitude, latitude)
-        template = "(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        template = "(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         
         data_tuples = [
             (

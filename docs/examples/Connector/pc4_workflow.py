@@ -38,7 +38,7 @@ def main():
     print("\n2. Creating Base Mission...")
     mission_resp = requests.post(f"{BASE_URL}/missions", json={
         "field_id": FIELD_ID,
-        "mission_type": "pc4_monitor",
+        "mission_type": "pc4_monitoring",
         "start_time": get_iso_now()
     }, headers=headers)
     mission_resp.raise_for_status()
