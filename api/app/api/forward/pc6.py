@@ -33,7 +33,7 @@ def push_pc6_data(mission_id: int, payload: dict, operation_type: str, record_ty
     headers = make_headers(body)
     
     if record_type == "inspection":
-        agroapps_record_type = "candidate"
+        agroapps_record_type = "candidates"
     elif record_type == "application":
         agroapps_record_type = "applications"
 

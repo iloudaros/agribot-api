@@ -23,14 +23,14 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
 
 def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: str, record_type: str, background_tasks: BackgroundTasks, conn, user: UserInDB):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT field_id FROM missions WHERE id = %s", (mission_id,))
+        cur.execute("SELECT field_id, start_time FROM missions WHERE id = %s", (mission_id,))
         mission = cur.fetchone()
         if not mission:
             raise HTTPException(status_code=404, detail="Mission not found")
-        
+
         field_id = mission["field_id"]
         _ensure_field_access(cur, field_id, user)
-        
+
         for tree in payload.trees:
             meta = tree.tree_metadata
             grid = tree.location.grid if tree.location and tree.location.grid else None
@@ -50,8 +50,8 @@ def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: s
                     location = EXCLUDED.location
                 RETURNING id
             """, (
-                field_id, meta.TreeID, meta.Variety, meta.Rootstock, meta.PlantingDate, 
-                grid.row if grid else None, grid.col if grid else None, geo.elevation if geo else None, 
+                field_id, meta.TreeID, meta.Variety, meta.Rootstock, meta.PlantingDate,
+                grid.row if grid else None, grid.col if grid else None, geo.elevation if geo else None,
                 geo.lon if geo else None, geo.lon if geo else None, geo.lat if geo else None
             ))
             tree_db_id = cur.fetchone()["id"]
@@ -81,17 +81,21 @@ def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: s
                     )
                     for b in op_data.branches
                 ]
-                
+
                 execute_values(cur, """
                     INSERT INTO pc6_branches (
-                        operation_id, branch_id, age_years, length_m, diameter_cm, 
+                        operation_id, branch_id, age_years, length_m, diameter_cm,
                         picture_id, class_id, bbox_x, bbox_y, bbox_width, bbox_height, confidence
                     ) VALUES %s
                 """, branch_tuples)
-        
+
         conn.commit()
 
     dict_payload = payload.model_dump(by_alias=True)
+    
+    dict_payload["parcel_id"] = field_id
+    dict_payload["date"] = mission["start_time"].strftime("%Y-%m-%d") if mission["start_time"] else ""
+
     background_tasks.add_task(push_pc6_data, mission_id, dict_payload, operation_type, record_type)
 
     return {"status": "success", "message": f"Processed {len(payload.trees)} trees for {operation_type} {record_type}"}
