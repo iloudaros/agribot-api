@@ -45,6 +45,7 @@ class FieldCreate(BaseModel):
 
 
 class FieldBatchCreate(BaseModel):
+    id: Optional[int] = None
     name: str
     crop_name: Optional[str] = None
     shape: Optional[GeoJSONPolygon] = None
@@ -117,7 +118,7 @@ class WeedUpdate(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
     verified: Optional[bool] = None
-
+    quantity: Optional[float] = None
 
 class WeedCreate(BaseModel):
     id: int
@@ -131,7 +132,7 @@ class WeedCreate(BaseModel):
     verified: Optional[bool] = None
     is_sprayed: bool = False
     spray_time: Optional[datetime] = None
-
+    quantity: Optional[float] = None
 
 class WeedBatchUpdateItem(BaseModel):
     id: int
@@ -139,7 +140,7 @@ class WeedBatchUpdateItem(BaseModel):
     is_sprayed: bool
     spray_time: Optional[datetime] = None
     verified: Optional[bool] = None
-
+    quantity: Optional[float] = None
 
 class Weed(BaseModel):
     id: int
@@ -153,6 +154,7 @@ class Weed(BaseModel):
     verified: Optional[bool] = None
     is_sprayed: bool
     spray_time: Optional[datetime] = None
+    quantity: Optional[float] = None
 
 
 class PC1ImageUploadRequest(BaseModel):

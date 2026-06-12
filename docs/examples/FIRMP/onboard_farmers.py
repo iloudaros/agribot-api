@@ -4,9 +4,8 @@ import sys
 BASE_URL = "http://127.0.0.1:8080/api/v1"
 AUTH_DATA = {
     "username": "admin@agribot.local",
-    "password": "testpassword"
+    "password": "supersecretpassword" # Note: Adjusted to match the current DB config
 }
-
 
 def main():
     print("--- AgriBot Data Lake Batch Onboarding (Users + Fields + Ownerships) ---")
@@ -29,7 +28,7 @@ def main():
     print("✓ Token acquired successfully.")
 
     # ---------------------------------------------------------
-    # 1. Batch Upload Users
+    # 1. Batch Upload Users (Upsert Behavior)
     # ---------------------------------------------------------
     print("\n2. Uploading users...")
     users_payload = [
@@ -65,67 +64,65 @@ def main():
         headers=headers
     )
     users_resp.raise_for_status()
-    created_users = users_resp.json()
-
-    user_id_map = {user["email"]: user["id"] for user in created_users}
-    print(f"✓ Uploaded {len(created_users)} users: {user_id_map}")
+    print(f"✓ Uploaded {len(users_resp.json())} users.")
 
     # ---------------------------------------------------------
-    # 2. Batch Upload Fields
+    # 2. Batch Upload Fields (Upsert Behavior)
     # ---------------------------------------------------------
-    print("\n3. Uploading fields...")
+    print("\n3. Uploading fields with explicit IDs (Upsert)...")
     fields_payload = [
-    {
-        "name": "North Block - Grapes",
-        "crop_name": "Grapes",
-        "shape": {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [11.9540, 44.4230],
-                    [11.9545, 44.4230],
-                    [11.9545, 44.4235],
-                    [11.9540, 44.4235],
-                    [11.9540, 44.4230]
+        {
+            "id": 2001,  # <--- NEW: Explicitly providing an ID
+            "name": "North Block - Grapes",
+            "crop_name": "Grapes",
+            "shape": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [11.9540, 44.4230],
+                        [11.9545, 44.4230],
+                        [11.9545, 44.4235],
+                        [11.9540, 44.4235],
+                        [11.9540, 44.4230]
+                    ]
                 ]
-            ]
-        }
-    },
-    {
-        "name": "Field 12A - Potatoes",
-        "crop_name": "Potato",
-        "shape": {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [4.8820, 52.3410],
-                    [4.8828, 52.3410],
-                    [4.8828, 52.3418],
-                    [4.8820, 52.3418],
-                    [4.8820, 52.3410]
+            }
+        },
+        {
+            "id": 2002,  # <--- NEW: Explicitly providing an ID
+            "name": "Field 12A - Potatoes",
+            "crop_name": "Potato",
+            "shape": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [4.8820, 52.3410],
+                        [4.8828, 52.3410],
+                        [4.8828, 52.3418],
+                        [4.8820, 52.3418],
+                        [4.8820, 52.3410]
+                    ]
                 ]
-            ]
-        }
-    },
-    {
-        "name": "South Olive Sector",
-        "crop_name": "Olives",
-        "shape": {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [23.3730, 38.2915],
-                    [23.3735, 38.2915],
-                    [23.3735, 38.2918],
-                    [23.3730, 38.2918],
-                    [23.3730, 38.2915]
+            }
+        },
+        {
+            "id": 2003,  # <--- NEW: Explicitly providing an ID
+            "name": "South Olive Sector",
+            "crop_name": "Olives",
+            "shape": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [23.3730, 38.2915],
+                        [23.3735, 38.2915],
+                        [23.3735, 38.2918],
+                        [23.3730, 38.2918],
+                        [23.3730, 38.2915]
+                    ]
                 ]
-            ]
+            }
         }
-    }
     ]
-
-
 
     fields_resp = requests.post(
         f"{BASE_URL}/core/fields/batch",
@@ -133,30 +130,28 @@ def main():
         headers=headers
     )
     fields_resp.raise_for_status()
-    created_fields = fields_resp.json()
-
-    field_id_map = {field["name"]: field["id"] for field in created_fields}
-    print(f"✓ Uploaded {len(created_fields)} fields: {field_id_map}")
+    print(f"✓ Successfully upserted {len(fields_resp.json())} fields.")
 
     # ---------------------------------------------------------
     # 3. Batch Assign Field Ownerships
     # ---------------------------------------------------------
-    print("\n4. Assigning field ownerships...")
+    print("\n4. Assigning field ownerships using predetermined IDs...")
+    # Because we explicitly defined the IDs above, we don't need complex mapping logic anymore!
     ownerships_payload = {
         "items": [
             {
-                "field_id": field_id_map["North Block - Grapes"],
-                "user_id": user_id_map["mario.rossi@example.com"],
+                "field_id": 2001,
+                "user_id": 1001,
                 "ownership_percentage": 100.0
             },
             {
-                "field_id": field_id_map["Field 12A - Potatoes"],
-                "user_id": user_id_map["anna.smith@example.com"],
+                "field_id": 2002,
+                "user_id": 1002,
                 "ownership_percentage": 100.0
             },
             {
-                "field_id": field_id_map["South Olive Sector"],
-                "user_id": user_id_map["nikos.papas@example.com"],
+                "field_id": 2003,
+                "user_id": 1003,
                 "ownership_percentage": 100.0
             }
         ]
@@ -180,15 +175,16 @@ def main():
 
     print(f"✓ Retrieved {len(final_fields)} fields from API:")
     for field in final_fields:
-        print(
-            f"  - Field ID: {field['id']} | "
-            f"Name: {field['name']} | "
-            f"Crop: {field.get('crop_name')} | "
-            f"Owners: {field.get('owners', [])}"
-        )
+        # Only print the ones we just added to keep the output clean
+        if field['id'] in [2001, 2002, 2003]:
+            print(
+                f"  - Field ID: {field['id']} | "
+                f"Name: {field['name']} | "
+                f"Crop: {field.get('crop_name')} | "
+                f"Owners: {field.get('owners', [])}"
+            )
 
     print("\n--- Batch Onboarding Complete! ---")
-
 
 if __name__ == "__main__":
     try:

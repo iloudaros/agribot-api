@@ -223,13 +223,13 @@ def update_pc1_mission_state(
 
             background_tasks.add_task(push_pc1_inspection_data, payload)
 
-        # --------------------------------------------------------------
+                # --------------------------------------------------------------
         # 4. If spraying completed, forward sprayed weed data
         # --------------------------------------------------------------
         elif state.status == "spraying_complete":
             cur.execute(
                 """
-                SELECT id, spray_time
+                SELECT id, spray_time, quantity
                 FROM pc1_weed
                 WHERE inspection_id = %s
                   AND is_sprayed = true
@@ -244,6 +244,7 @@ def update_pc1_mission_state(
                     {
                         "id": w["id"],
                         "timestamp": w["spray_time"].strftime("%Y%m%d%H%M%S") if w["spray_time"] else "",
+                        "quantity": w["quantity"]
                     }
                     for w in sprayed_data
                 ],
@@ -410,64 +411,32 @@ def create_pc1_weeds_batch(
 
         query = """
             INSERT INTO pc1_weed (
-                id,
-                inspection_id,
-                name,
-                image,
-                confidence,
-                weed_loc,
-                needs_verification,
-                verified,
-                is_sprayed,
-                spray_time
+                id, inspection_id, name, image, confidence, weed_loc,
+                needs_verification, verified, is_sprayed, spray_time, quantity
             )
             VALUES %s
             RETURNING
-                id,
-                inspection_id,
-                name,
-                image,
-                confidence,
-                ST_Y(weed_loc) AS latitude,
-                ST_X(weed_loc) AS longitude,
-                needs_verification,
-                verified,
-                is_sprayed,
-                spray_time
+                id, inspection_id, name, image, confidence,
+                ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude,
+                needs_verification, verified, is_sprayed, spray_time, quantity
         """
 
         template = """
             (
-                %s,
-                %s,
-                %s,
-                %s,
-                %s,
+                %s, %s, %s, %s, %s,
                 CASE
                     WHEN %s::float IS NULL THEN NULL
                     ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326)
                 END,
-                %s,
-                %s,
-                %s,
-                %s
+                %s, %s, %s, %s, %s
             )
         """
 
         data_tuples = [
             (
-                w.id,
-                w.inspection_id,
-                w.name,
-                w.image,
-                w.confidence,
-                w.longitude,
-                w.longitude,
-                w.latitude,
-                w.needs_verification,
-                w.verified,
-                w.is_sprayed,
-                w.spray_time,
+                w.id, w.inspection_id, w.name, w.image, w.confidence,
+                w.longitude, w.longitude, w.latitude,
+                w.needs_verification, w.verified, w.is_sprayed, w.spray_time, w.quantity
             )
             for w in weeds_in
         ]
@@ -614,26 +583,19 @@ def update_pc1_weeds_batch(
             UPDATE pc1_weed AS w
             SET verified = data.verified::boolean,
                 is_sprayed = data.is_sprayed::boolean,
-                spray_time = data.spray_time::timestamptz
-            FROM (VALUES %s) AS data(id, inspection_id, verified, is_sprayed, spray_time)
+                spray_time = data.spray_time::timestamptz,
+                quantity = data.quantity::float
+            FROM (VALUES %s) AS data(id, inspection_id, verified, is_sprayed, spray_time, quantity)
             WHERE w.id = data.id::int
               AND w.inspection_id = data.inspection_id::int
             RETURNING
-                w.id,
-                w.inspection_id,
-                w.name,
-                w.image,
-                w.confidence,
-                ST_Y(w.weed_loc) AS latitude,
-                ST_X(w.weed_loc) AS longitude,
-                w.needs_verification,
-                w.verified,
-                w.is_sprayed,
-                w.spray_time
+                w.id, w.inspection_id, w.name, w.image, w.confidence,
+                ST_Y(w.weed_loc) AS latitude, ST_X(w.weed_loc) AS longitude,
+                w.needs_verification, w.verified, w.is_sprayed, w.spray_time, w.quantity
         """
 
         data_tuples = [
-            (u.id, u.inspection_id, u.verified, u.is_sprayed, u.spray_time)
+            (u.id, u.inspection_id, u.verified, u.is_sprayed, u.spray_time, u.quantity)
             for u in updates
         ]
 

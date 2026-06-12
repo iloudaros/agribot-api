@@ -164,6 +164,7 @@ def create_fields_batch(
 
     field_tuples = [
         (
+            f.id,
             f.name,
             f.crop_name,
             f.shape.model_dump_json() if f.shape is not None else None,
@@ -173,9 +174,14 @@ def create_fields_batch(
     ]
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Added 'id' to INSERT and the ON CONFLICT clause
         query = """
-            INSERT INTO fields (name, crop_name, boundary)
+            INSERT INTO fields (id, name, crop_name, boundary)
             VALUES %s
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                crop_name = EXCLUDED.crop_name,
+                boundary = EXCLUDED.boundary
             RETURNING
                 id,
                 name,
@@ -186,8 +192,10 @@ def create_fields_batch(
                 END AS shape
         """
 
+        # Added COALESCE to either use the provided %s ID or generate a new one
         template = """
             (
+                COALESCE(%s::int, nextval(pg_get_serial_sequence('fields', 'id'))),
                 %s,
                 %s,
                 CASE
