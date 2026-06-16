@@ -2,7 +2,7 @@ import requests
 import datetime
 import time
 import sys
-import api_url 
+import api_url
 
 # Configuration
 BASE_URL = api_url.BASE_URL
@@ -23,7 +23,7 @@ def main():
     if auth_resp.status_code != 200:
         print(f"Auth Failed: {auth_resp.text}")
         sys.exit(1)
-        
+
     headers = {
         "Authorization": f"Bearer {auth_resp.json()['access_token']}",
         "Content-Type": "application/json"
@@ -40,7 +40,7 @@ def main():
         "start_time": get_iso_now()
     }, headers=headers)
     mission_resp.raise_for_status()
-    
+
     mission_id = mission_resp.json()["id"]
     print(f"✓ Base Mission created with auto-generated DB ID: {mission_id}")
 
@@ -55,11 +55,11 @@ def main():
     # 3. PHASE 1: UPLOAD IMAGES TO MINIO
     # -----------------------------------------------------
     print("\n3. Phase 1a: Requesting secure links & uploading images to MinIO...")
-    
-    # Weeds data detected by the robot (missing 'image' URI for now)
+
+    # Weeds data detected by the robot (quantity is None/omitted during inspection)
     detected_weeds = [
         {
-            "id": 1,  
+            "id": 1,
             "inspection_id": mission_id,
             "name": "weeds_01.jpg",
             "confidence": 0.85,
@@ -69,7 +69,7 @@ def main():
             "is_sprayed": False
         },
         {
-            "id": 2, 
+            "id": 2,
             "inspection_id": mission_id,
             "name": "weeds_02.jpg",
             "confidence": 0.92,
@@ -81,24 +81,21 @@ def main():
     ]
 
     for weed in detected_weeds:
-        # A. Request Presigned URL from FastAPI
         presigned_req = requests.post(f"{BASE_URL}/pc1/images/presigned-url", json={
             "filename": weed["name"],
             "inspection_id": mission_id
         }, headers=headers)
         presigned_req.raise_for_status()
-        
+
         minio_data = presigned_req.json()
         upload_url = minio_data["upload_url"]
         image_uri = minio_data["image_uri"]
-        
-        # B. Upload the actual image file to MinIO (Bypassing FastAPI)
-        # Using dummy bytes here to simulate an image file
+
+        # Upload the actual image file to MinIO (Bypassing FastAPI)
         dummy_image_bytes = b"fake_image_data_from_camera"
-        upload_resp = requests.put(upload_url, data=dummy_image_bytes)
-        upload_resp.raise_for_status()
-        
-        # C. Attach the generated URI to our weed payload
+        requests.put(upload_url, data=dummy_image_bytes).raise_for_status()
+
+        # Attach the generated URI to our weed payload
         weed["image"] = image_uri
         print(f"  ✓ Uploaded {weed['name']} -> {image_uri}")
 
@@ -116,24 +113,23 @@ def main():
     }, headers=headers).raise_for_status()
     print("✓ PC1 State set to: inspection_complete (AgroApps webhook triggered!)")
 
-    # Simulate time passing between inspection and spraying
     print("\n   ... Waiting for UGV to perform spraying pass ...")
     time.sleep(2)
 
     # -----------------------------------------------------
     # 5. PHASE 2: SPRAYING (BATCH UPDATE WEEDS)
     # -----------------------------------------------------
-    print("\n5. Phase 2: BATCH Updating Weeds as Sprayed...")
+    print("\n5. Phase 2: BATCH Updating Weeds as Sprayed (Adding Quantity)...")
     spray_time = get_iso_now()
-    
-    # Send the update targeting the integers
+
+    # Send the update targeting the integers, now including 'quantity'
     update_payload = [
-        {"id": 1, "inspection_id": mission_id,"verified": True, "is_sprayed": True, "spray_time": spray_time},
-        {"id": 2, "inspection_id": mission_id, "is_sprayed": True, "spray_time": spray_time}
+        {"id": 1, "inspection_id": mission_id, "verified": True, "is_sprayed": True, "spray_time": spray_time, "quantity": 15.5},
+        {"id": 2, "inspection_id": mission_id, "is_sprayed": True, "spray_time": spray_time, "quantity": 12.0}
     ]
-    
+
     requests.patch(f"{BASE_URL}/pc1/weeds/batch", json=update_payload, headers=headers).raise_for_status()
-    print(f"✓ Successfully marked {len(update_payload)} weeds as sprayed.")
+    print(f"✓ Successfully marked {len(update_payload)} weeds as sprayed with applied quantities.")
 
     # Update PC1 State to SPRAYING_COMPLETE (Triggers the 2nd AgroApps Webhook!)
     requests.put(f"{BASE_URL}/pc1/missions/{mission_id}/state", json={
@@ -158,12 +154,13 @@ def main():
     print("\n7. Fetching final data to verify...")
     get_weeds_resp = requests.get(f"{BASE_URL}/pc1/weeds/{mission_id}", headers=headers)
     get_weeds_resp.raise_for_status()
-    
+
     weeds_data = get_weeds_resp.json()
     for w in weeds_data:
         status_str = "✅ Sprayed" if w['is_sprayed'] else "❌ Not Sprayed"
-        print(f"  - Weed ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status_str} at {w['spray_time']}")
-        
+        qty_str = f"{w.get('quantity', 0)} ml"
+        print(f"  - Weed ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status_str} at {w['spray_time']} | Qty: {qty_str}")
+
         # Test frontend image retrieval
         image_req = requests.get(f"{BASE_URL}/pc1/weeds/{mission_id}/{w['id']}/image-url", headers=headers)
         if image_req.status_code == 200:

@@ -706,7 +706,8 @@ def list_pc1_weeds(
                 needs_verification,
                 verified,
                 is_sprayed,
-                spray_time
+                spray_time,
+                quantity
             FROM pc1_weed
             WHERE inspection_id = %s
             ORDER BY id

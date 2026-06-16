@@ -89,6 +89,7 @@ Table pc1_weed {
   verified bool
   is_sprayed bool
   spray_time timestamptz
+  quantity float
 
 
     indexes {
