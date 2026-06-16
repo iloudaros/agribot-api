@@ -1,10 +1,12 @@
 import requests
 import sys
+import api_url 
 
-BASE_URL = "http://127.0.0.1:8080/api/v1"
+# Configuration
+BASE_URL = api_url.BASE_URL
 AUTH_DATA = {
     "username": "admin@agribot.local",
-    "password": "supersecretpassword" # Note: Adjusted to match the current DB config
+    "password": "testpassword"
 }
 
 def main():
