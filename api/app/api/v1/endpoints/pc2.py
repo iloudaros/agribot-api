@@ -219,17 +219,17 @@ def confirm_pc2_dti_photo(
     return saved_record
 
 
-@router.get("/dti/fields/{field_id}/latest-photo", response_model=PC2DTILatestPhotoResponse)
+@router.get("/dti/fields/{field_id}/latest-photo")
 def get_latest_dti_photo(
     field_id: int,
     request: Request,
     conn=Depends(get_db_conn),
     user: UserInDB = Depends(get_current_active_user)
 ):
-    """Retrieve metadata and a SECURE download link for the latest DTI drone photo for a specific field."""
+    """Retrieve and stream the actual latest DTI drone photo for a specific field."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         _ensure_field_access(cur, field_id, user)
-        
+
         cur.execute("""
             SELECT d.mission_id, d.photo_uri, d.created_at
             FROM pc2_dti d
@@ -243,16 +243,37 @@ def get_latest_dti_photo(
         if not row:
             raise HTTPException(status_code=404, detail="No DTI photos found for this field")
 
-    # Instead of exposing MinIO directly, point to our secure streaming endpoint
-    base_url = str(request.base_url).rstrip("/")
-    secure_url = f"{base_url}/api/v1/pc2/dti/missions/{row['mission_id']}/photo"
+    # Get the file from MinIO
+    bucket_name, object_key = _parse_minio_uri(row["photo_uri"])
+    minio_internal_client = request.app.state.minio_internal_client
 
-    return {
-        "mission_id": row["mission_id"],
-        "field_id": field_id,
-        "photo_url": secure_url,
-        "created_at": row["created_at"]
-    }
+    # Determine media type from extension
+    ext = object_key.split(".")[-1].lower() if "." in object_key else "jpeg"
+    media_type = "image/jpeg" if ext in ["jpg", "jpeg"] else f"image/{ext}"
+
+    try:
+        minio_response = minio_internal_client.get_object(bucket_name, object_key)
+        def iterfile():
+            try:
+                for chunk in minio_response.stream(32 * 1024): yield chunk
+            finally:
+                minio_response.close()
+                minio_response.release_conn()
+
+        # Pass the metadata as custom headers since the body is now binary
+        headers = {
+            "Content-Disposition": f'inline; filename="field_{field_id}_latest_photo.{ext}"',
+            "X-Mission-ID": str(row["mission_id"]),
+            "X-Created-At": row["created_at"].isoformat()
+        }
+
+        return StreamingResponse(
+            iterfile(),
+            media_type=media_type,
+            headers=headers
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
 
 
 @router.get("/dti/missions/{mission_id}/photo")

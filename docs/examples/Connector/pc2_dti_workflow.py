@@ -2,7 +2,7 @@ import requests
 import datetime
 import os
 import sys
-import api_url 
+import api_url
 
 # Configuration
 BASE_URL = api_url.BASE_URL
@@ -14,7 +14,7 @@ def get_iso_now():
 
 def create_dummy_photo():
     dummy_path = "temp_drone_photo.jpg"
-    with open(dummy_path, "wb") as f: 
+    with open(dummy_path, "wb") as f:
         f.write(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01dummy_jpg_data_here")
     return dummy_path
 
@@ -28,14 +28,14 @@ def main():
     if auth_resp.status_code != 200:
         print(f"Auth Failed: {auth_resp.text}")
         sys.exit(1)
-        
+
     headers = {"Authorization": f"Bearer {auth_resp.json()['access_token']}", "Content-Type": "application/json"}
     print("✓ Token acquired.")
 
     print("\n2. Creating Base Mission...")
     mission_resp = requests.post(f"{BASE_URL}/missions", json={
         "field_id": FIELD_ID,
-        "mission_type": "pc2_dti", 
+        "mission_type": "pc2_dti",
         "start_time": get_iso_now()
     }, headers=headers)
     mission_resp.raise_for_status()
@@ -48,7 +48,7 @@ def main():
         "filename": "field_survey.jpg"
     }, headers=headers)
     url_resp.raise_for_status()
-    
+
     url_data = url_resp.json()
     photo_upload_url = url_data["upload_url"]
     photo_uri = url_data["photo_uri"]
@@ -71,29 +71,32 @@ def main():
     }, headers=headers).raise_for_status()
     print("✓ Base Mission status set to 'complete'.")
 
-    print("\n7. Fetching Latest Photo Metadata...")
+    print(f"\n7. Fetching and Downloading Latest Photo Directly for Field {FIELD_ID}...")
+    # Make sure we pass the JWT token to authenticate the download
     latest_resp = requests.get(f"{BASE_URL}/pc2/dti/fields/{FIELD_ID}/latest-photo", headers=headers)
-    
+
     if latest_resp.status_code == 200:
-        latest_data = latest_resp.json()
-        secure_photo_url = latest_data['photo_url']
-        print(f"  ✓ Latest photo found (Mission ID: {latest_data['mission_id']})")
-        print(f"  ✓ Secure Download URL: {secure_photo_url}")
+        # Extract metadata from the headers
+        mission_id_header = latest_resp.headers.get("X-Mission-ID", "Unknown")
+        created_at_header = latest_resp.headers.get("X-Created-At", "Unknown")
         
-        print("\n8. Downloading Photo Securely using JWT Token...")
-        # Note: We pass `headers` which contains our Bearer token!
-        download_resp = requests.get(secure_photo_url, headers=headers)
-        if download_resp.status_code == 200:
-            print(f"  ✓ Image securely downloaded! (Size: {len(download_resp.content)} bytes)")
-        else:
-            print(f"  ❌ Secure download failed: {download_resp.status_code} - {download_resp.text}")
+        print(f"  ✓ Photo stream retrieved! (Mission ID: {mission_id_header}, Uploaded: {created_at_header})")
+
+        # Save the binary content directly to a file
+        downloaded_file = f"downloaded_field_{FIELD_ID}_latest.jpg"
+        with open(downloaded_file, "wb") as f:
+            f.write(latest_resp.content)
+            
+        print(f"  ✓ Image securely saved as '{downloaded_file}'! (Size: {len(latest_resp.content)} bytes)")
 
     else:
-        print(f"  ❌ Failed to fetch latest photo metadata: {latest_resp.text}")
+        print(f"  ❌ Failed to fetch latest photo: {latest_resp.status_code} - {latest_resp.text}")
 
     if os.path.exists(photo_to_upload):
         os.remove(photo_to_upload)
 
 if __name__ == "__main__":
-    try: main()
-    except requests.exceptions.RequestException as e: print(f"\n❌ Request failed: {e}")
+    try: 
+        main()
+    except requests.exceptions.RequestException as e: 
+        print(f"\n❌ Request failed: {e}")
