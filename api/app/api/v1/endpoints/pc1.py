@@ -223,7 +223,7 @@ def update_pc1_mission_state(
 
             background_tasks.add_task(push_pc1_inspection_data, payload)
 
-                # --------------------------------------------------------------
+        # --------------------------------------------------------------
         # 4. If spraying completed, forward sprayed weed data
         # --------------------------------------------------------------
         elif state.status == "spraying_complete":

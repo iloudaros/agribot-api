@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-06-16T11:21:19.457Z
+-- Generated at: 2026-09-10T12:17:31.202Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',

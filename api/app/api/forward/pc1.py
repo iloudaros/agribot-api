@@ -30,9 +30,10 @@ def make_headers(body: str = "") -> dict:
 def push_pc1_inspection_data(payload: dict):
     body = json.dumps(payload, separators=(',', ':'))
     headers = make_headers(body)
-    
+
     try:
         logger.info(f"Pushing Inspection Data to AgroApps for mission {payload.get('inspection_id')}...")
+        logger.info(f"Payload being sent: {body}") 
         resp = requests.post(f"{BASE_URL}/inspection", data=body, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"✓ AgroApps Inspection Push Success: {resp.status_code}")
@@ -44,9 +45,10 @@ def push_pc1_inspection_data(payload: dict):
 def push_pc1_sprayed_weeds_data(payload: dict):
     body = json.dumps(payload, separators=(',', ':'))
     headers = make_headers(body)
-    
+
     try:
         logger.info(f"Pushing Sprayed Weeds Data to AgroApps for mission {payload.get('inspection_id')}...")
+        logger.info(f"Payload being sent: {body}")
         resp = requests.post(f"{BASE_URL}/inspection/sprayed-weeds", data=body, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"✓ AgroApps Sprayed Weeds Push Success: {resp.status_code}")
