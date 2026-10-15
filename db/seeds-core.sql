@@ -50,6 +50,15 @@ VALUES
         'service_provider',
         true,
         NOW()
+    ),
+    (
+        20,
+        'farmerpilotcaseone@gmail.com',
+        '$2b$12$p9D6ltig4GmoGwbbEq.92eXBcwiaPpFEDh.b0S2XdGAV77NVp3CBW',
+        'Dummy Farmer New',
+        'farmer',
+        true,
+        NOW()
     );
 
 
@@ -118,6 +127,21 @@ VALUES
             4326
         ),
         NOW()   
+    ),
+    ( 80,
+    'Parcel Pilot Case 1',
+    'maize',
+    ST_GeomFromText(
+        'POLYGON((
+        22.634397711700103 39.93480094079513,
+        22.63409303469341 39.93442417454895,
+        22.635708098003022 39.93353401898071,
+        22.636233785139748 39.93390077035542,
+        22.634397711700103 39.93480094079513
+    ))',
+    4326
+    ),
+    NOW()
     );
 
 -- Replaced farm_ownerships with field_ownerships
@@ -127,7 +151,8 @@ VALUES
     (45, 2, 100.00),
     (44, 3, 40.00),
     (48, 2, 100.00),
-    (63, 2, 100.00);
+    (63, 2, 100.00),
+    (80, 20, 100.00);
 
 INSERT INTO mission_types (id, pilot_case, partner, description)
 VALUES

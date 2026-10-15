@@ -412,13 +412,21 @@ def create_pc1_weeds_batch(
         query = """
             INSERT INTO pc1_weed (
                 id, inspection_id, name, image, confidence, weed_loc,
-                needs_verification, verified, is_sprayed, spray_time, quantity
+                needs_verification, verified, is_sprayed, spray_time, quantity, bbox_x, bbox_width, bbox_y, bbox_height
             )
             VALUES %s
             RETURNING
                 id, inspection_id, name, image, confidence,
                 ST_Y(weed_loc) AS latitude, ST_X(weed_loc) AS longitude,
-                needs_verification, verified, is_sprayed, spray_time, quantity
+                needs_verification, verified, is_sprayed, spray_time, quantity,
+                CASE
+                    WHEN bbox_x IS NULL OR bbox_width IS NULL
+                      OR bbox_y IS NULL OR bbox_height IS NULL THEN NULL
+                    ELSE jsonb_build_object(
+                        'x_min', bbox_x, 'x_max', bbox_width,
+                        'y_min', bbox_y, 'y_max', bbox_height
+                    )
+                END AS bbox
         """
 
         template = """
@@ -428,7 +436,7 @@ def create_pc1_weeds_batch(
                     WHEN %s::float IS NULL THEN NULL
                     ELSE ST_SetSRID(ST_MakePoint(%s::float, %s::float), 4326)
                 END,
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
 
@@ -436,7 +444,11 @@ def create_pc1_weeds_batch(
             (
                 w.id, w.inspection_id, w.name, w.image, w.confidence,
                 w.longitude, w.longitude, w.latitude,
-                w.needs_verification, w.verified, w.is_sprayed, w.spray_time, w.quantity
+                w.needs_verification, w.verified, w.is_sprayed, w.spray_time, w.quantity,
+                float(w.bbox.x_min) if w.bbox is not None else None,
+                float(w.bbox.x_max) if w.bbox is not None else None,
+                float(w.bbox.y_min) if w.bbox is not None else None,
+                float(w.bbox.y_max) if w.bbox is not None else None,
             )
             for w in weeds_in
         ]
@@ -707,7 +719,15 @@ def list_pc1_weeds(
                 verified,
                 is_sprayed,
                 spray_time,
-                quantity
+                quantity,
+                CASE
+                    WHEN bbox_x IS NULL OR bbox_width IS NULL
+                      OR bbox_y IS NULL OR bbox_height IS NULL THEN NULL
+                    ELSE jsonb_build_object(
+                        'x_min', bbox_x, 'x_max', bbox_width,
+                        'y_min', bbox_y, 'y_max', bbox_height
+                    )
+                END AS bbox
             FROM pc1_weed
             WHERE inspection_id = %s
             ORDER BY id

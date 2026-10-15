@@ -109,6 +109,14 @@ class MissionCreate(MissionBase):
 ###############
 # PC1 Schemas #
 ###############
+class PC1BoundingBox(BaseModel):
+    """ Original-image pixels, x-min/max """
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+
+
 class PC1MissionState(BaseModel):
     mission_id: int
     status: PC1MissionStatus
@@ -119,6 +127,7 @@ class WeedUpdate(BaseModel):
     spray_time: Optional[datetime] = None
     verified: Optional[bool] = None
     quantity: Optional[float] = None
+    bbox: Optional[PC1BoundingBox] = None
 
 class WeedCreate(BaseModel):
     id: int
@@ -128,6 +137,7 @@ class WeedCreate(BaseModel):
     confidence: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    bbox: Optional[PC1BoundingBox] = None
     needs_verification: bool = False
     verified: Optional[bool] = None
     is_sprayed: bool = False
@@ -150,6 +160,7 @@ class Weed(BaseModel):
     confidence: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    bbox: Optional[PC1BoundingBox] = None
     needs_verification: bool = False
     verified: Optional[bool] = None
     is_sprayed: bool
@@ -342,6 +353,8 @@ class PC6Branch(BaseModel):
     Length_m: Optional[float] = None
     Diameter_cm: Optional[float] = None
     yolo_detection: PC6YoloDetection
+    selected: Optional[bool] = None 
+    image: Optional[str] = None
 
 class PC6OperationData(BaseModel):
     BranchesToCutCount: Optional[int] = None
@@ -353,8 +366,13 @@ class PC6Tree(BaseModel):
     location: Optional[PC5Location] = None
     thinning_data: Optional[PC6OperationData] = None
     pruning_data: Optional[PC6OperationData] = None
+    
 
 class PC6Payload(BaseModel):
     context: Optional[dict] = PydanticField(default=None, alias="@context")
     trees: List[PC6Tree]
     model_config = ConfigDict(populate_by_name=True)
+
+class PC6ImageUploadRequest(BaseModel):
+    filename: str
+    inspection_id: int

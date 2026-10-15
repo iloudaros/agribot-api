@@ -85,11 +85,16 @@ Table pc1_weed {
   image varchar
   confidence float
   weed_loc geometry [note:'Postgis Point']
+  bbox_x float
+  bbox_y float
+  bbox_width float
+  bbox_height float
   needs_verification bool
   verified bool
   is_sprayed bool
   spray_time timestamptz
   quantity float
+
 
 
     indexes {
@@ -245,4 +250,6 @@ Table pc6_branches {
   bbox_width float
   bbox_height float
   confidence float
+  selected boolean
+  image varchar
 }

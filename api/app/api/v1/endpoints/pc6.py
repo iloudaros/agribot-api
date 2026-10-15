@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+import uuid
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from psycopg2.extras import RealDictCursor, execute_values
 
 from app.core.db import get_db_conn
-from app.models.schemas import PC6Payload
+from app.models.schemas import PC6Payload, PC6ImageUploadRequest
 from app.security import UserInDB, get_current_active_user
 from app.api.forward.pc6 import push_pc6_data
 
@@ -20,6 +23,31 @@ def _ensure_field_access(cur, field_id: int, user: UserInDB) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this field",
         )
+
+def _parse_minio_uri(image_uri: str) -> tuple[str, str]:
+    """
+    Parse a MinIO URI of the form:
+
+        minio://bucket-name/path/to/object.jpg
+
+    and return:
+
+        (bucket_name, object_key)
+    """
+    if not image_uri or not image_uri.startswith("minio://"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid MinIO image URI"
+        )
+
+    uri_parts = image_uri.replace("minio://", "", 1).split("/", 1)
+    if len(uri_parts) != 2:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Malformed image URI in database"
+        )
+
+    return uri_parts[0], uri_parts[1]
 
 def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: str, record_type: str, background_tasks: BackgroundTasks, conn, user: UserInDB):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -77,7 +105,7 @@ def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: s
                         b.yolo_detection.picture_id, b.yolo_detection.class_id,
                         b.yolo_detection.x, b.yolo_detection.y,
                         b.yolo_detection.width, b.yolo_detection.height,
-                        b.yolo_detection.confidence
+                        b.yolo_detection.confidence,b.selected, b.image
                     )
                     for b in op_data.branches
                 ]
@@ -85,7 +113,7 @@ def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: s
                 execute_values(cur, """
                     INSERT INTO pc6_branches (
                         operation_id, branch_id, age_years, length_m, diameter_cm,
-                        picture_id, class_id, bbox_x, bbox_y, bbox_width, bbox_height, confidence
+                        picture_id, class_id, bbox_x, bbox_y, bbox_width, bbox_height, confidence, selected, image
                     ) VALUES %s
                 """, branch_tuples)
 
@@ -99,6 +127,123 @@ def _process_pc6_payload(mission_id: int, payload: PC6Payload, operation_type: s
     background_tasks.add_task(push_pc6_data, mission_id, dict_payload, operation_type, record_type)
 
     return {"status": "success", "message": f"Processed {len(payload.trees)} trees for {operation_type} {record_type}"}
+
+# --- Image Upload Endpoints ---
+@router.post("/images/presigned-url")
+def get_pc6_upload_url(
+    req: PC6ImageUploadRequest,
+    request: Request,
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user),
+    ):
+    """
+    Generate a presigned PUT URL so the connector can upload images directly
+    to MinIO.
+
+    The bucket is assumed to already exist.
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT field_id, mission_type
+            FROM missions
+            WHERE id = %s
+            """,
+            (req.inspection_id,),
+        )
+        mission = cur.fetchone()
+
+        if not mission:
+            raise HTTPException(status_code=404, detail="Mission not found")
+
+        if mission["mission_type"] not in ["pc6_thinning", "pc6_pruning",]:
+            raise HTTPException(status_code=400, detail="Invalid mission type for PC6 images")
+
+        _ensure_field_access(cur, mission["field_id"], user)
+
+    minio_public_client = request.app.state.minio_public_client
+    bucket_name = "agribot-mission-images"
+
+    file_ext = req.filename.split(".")[-1] if "." in req.filename else "bin"
+    unique_name = f"{uuid.uuid4()}.{file_ext}"
+    object_name = f"pc6/mission_{req.inspection_id}/{unique_name}"
+
+    try:
+        upload_url = minio_public_client.get_presigned_url(
+            "PUT",
+            bucket_name,
+            object_name,
+            expires=timedelta(minutes=10),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MinIO Error: {str(e)}")
+
+    return {
+        "upload_url": upload_url,
+        "bucket": bucket_name,
+        "object_key": object_name,
+        "image_uri": f"minio://{bucket_name}/{object_name}",
+    }
+
+
+
+
+@router.get("/trees/{tree_id}/{mission_id}/{branch_id}/image-url")
+def get_pc6_branch_image_url(
+    mission_id: int,
+    tree_id: int,
+    branch_id: int,
+    request: Request,
+    conn=Depends(get_db_conn),
+    user: UserInDB = Depends(get_current_active_user),
+):
+    """
+    Generate a presigned GET URL so the frontend can display a branch image.
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT b.image AS image, m.field_id
+            FROM pc6_branches b
+            JOIN pc6_operations o
+              ON o.id = b.operation_id
+            JOIN pc5_trees t
+              ON t.id = o.tree_id
+            JOIN missions m
+              ON m.id = o.mission_id
+            WHERE b.id = %s
+              AND t.id = %s
+              AND o.mission_id = %s
+            """,
+            (branch_id, tree_id, mission_id),
+        )
+        row = cur.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Branch not found")
+
+        if not row["image"] or not row["image"].startswith("minio://"):
+            raise HTTPException(
+                status_code=400,
+                detail="No valid MinIO image associated with this branch",
+            )
+
+        _ensure_field_access(cur, row["field_id"], user)
+
+    bucket_name, object_key = _parse_minio_uri(row["image"])
+    minio_public_client = request.app.state.minio_public_client
+
+    try:
+        image_url = minio_public_client.get_presigned_url(
+            "GET",
+            bucket_name,
+            object_key,
+            expires=timedelta(hours=1),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MinIO Error: {e}") from e
+
+    return {"image_url": image_url}
 
 # --- Thinning Endpoints ---
 @router.post("/missions/{mission_id}/thinning/inspection")

@@ -66,7 +66,13 @@ def main():
             "latitude": 38.2915,
             "longitude": 23.3732,
             "needs_verification": True,
-            "is_sprayed": False
+            "is_sprayed": False,
+            "bbox": {
+                "x_min": 100.0,
+                "x_max": 200.0,
+                "y_min": 150.0,
+                "y_max": 250.0
+            }
         },
         {
             "id": 2,
@@ -76,7 +82,13 @@ def main():
             "latitude": 38.2916,
             "longitude": 23.3733,
             "needs_verification": False,
-            "is_sprayed": False
+            "is_sprayed": False,
+            "bbox": {
+                "x_min": 300.0,
+                "x_max": 400.0,
+                "y_min": 350.0,
+                "y_max": 450.0
+            }
         }
     ]
 
@@ -159,7 +171,7 @@ def main():
     for w in weeds_data:
         status_str = "✅ Sprayed" if w['is_sprayed'] else "❌ Not Sprayed"
         qty_str = f"{w.get('quantity', 0)} ml"
-        print(f"  - Weed ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status_str} at {w['spray_time']} | Qty: {qty_str}")
+        print(f"  - Weed ID: {w['id']} | Conf: {w['confidence']*100}% | Status: {status_str} at {w['spray_time']} | Qty: {qty_str} | BBox: {w.get('bbox', {})}")
 
         # Test frontend image retrieval
         image_req = requests.get(f"{BASE_URL}/pc1/weeds/{mission_id}/{w['id']}/image-url", headers=headers)

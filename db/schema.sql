@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-09-10T12:17:31.202Z
+-- Generated at: 2026-10-08T17:48:59.022Z
 
 CREATE TYPE "user_role" AS ENUM (
   'admin',
@@ -75,6 +75,10 @@ CREATE TABLE "pc1_weed" (
   "image" varchar,
   "confidence" float,
   "weed_loc" geometry,
+  "bbox_x" float,
+  "bbox_y" float,
+  "bbox_width" float,
+  "bbox_height" float,
   "needs_verification" bool,
   "verified" bool,
   "is_sprayed" bool,
@@ -187,7 +191,9 @@ CREATE TABLE "pc6_branches" (
   "bbox_y" float,
   "bbox_width" float,
   "bbox_height" float,
-  "confidence" float
+  "confidence" float,
+  "selected" boolean,
+  "image" varchar
 );
 
 CREATE UNIQUE INDEX ON "pc5_trees" ("field_id", "tree_identifier");
